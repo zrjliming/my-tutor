@@ -35,7 +35,9 @@ export const IPC = {
 export interface SpeakMateAPI {
   conversations: {
     list(): Promise<Conversation[]>
-    create(input: CreateConversationInput): Promise<{ conversation: Conversation; assistantMessageId: string }>
+    create(
+      input: CreateConversationInput
+    ): Promise<{ conversation: Conversation; assistantMessageId: string }>
     delete(id: string): Promise<void>
   }
   messages: {

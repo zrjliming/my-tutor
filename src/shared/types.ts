@@ -100,7 +100,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   lastProfileAnalysisAt: null
 }
 
-export type AIErrorKind = 'not_logged_in' | 'binary_missing' | 'network' | 'rate_limited' | 'aborted' | 'unknown'
+export type AIErrorKind =
+  'not_logged_in' | 'binary_missing' | 'network' | 'rate_limited' | 'aborted' | 'unknown'
 
 export type ChatEvent =
   | { type: 'text_delta'; text: string }
