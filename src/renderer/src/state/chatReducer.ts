@@ -66,6 +66,19 @@ function patchMessage(
   return { ...state, messages: { ...state.messages, [conversationId]: next } }
 }
 
+// 流事件可能先于 send/create 的 IPC 回复到达：助手消息已存在时按其终态补齐状态转移
+const TERMINAL: Partial<Record<Message['status'], UiEvent>> = {
+  done: 'DONE',
+  error: 'FAIL',
+  stopped: 'STOP'
+}
+
+function sendFor(state: ChatState, conversationId: string, existing?: Message): ChatState {
+  const s = withUi(state, conversationId, 'SEND')
+  const terminal = existing && TERMINAL[existing.status]
+  return terminal ? withUi(s, conversationId, terminal) : s
+}
+
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case 'conversations/loaded':
@@ -75,16 +88,19 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         currentId: state.currentId ?? action.conversations[0]?.id ?? null
       }
     case 'conversation/created': {
+      const cid = action.conversation.id
+      const prev = state.messages[cid] ?? []
+      const existing = prev.find((m) => m.id === action.assistantMessageId)
       const s: ChatState = {
         ...state,
         conversations: [action.conversation, ...state.conversations],
-        currentId: action.conversation.id,
+        currentId: cid,
         messages: {
           ...state.messages,
-          [action.conversation.id]: [placeholder(action.assistantMessageId, action.conversation.id)]
+          [cid]: existing ? prev : [...prev, placeholder(action.assistantMessageId, cid)]
         }
       }
-      return withUi(s, action.conversation.id, 'SEND')
+      return sendFor(s, cid, existing)
     }
     case 'conversation/selected':
       return { ...state, currentId: action.id }
@@ -103,17 +119,19 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, messages: { ...state.messages, [action.conversationId]: action.messages } }
     case 'message/userSent': {
       const id = action.userMessage.conversationId
-      const list = [
-        ...(state.messages[id] ?? []),
-        action.userMessage,
-        placeholder(action.assistantMessageId, id)
-      ]
+      const prev = state.messages[id] ?? []
+      const idx = prev.findIndex((m) => m.id === action.assistantMessageId)
+      const existing = idx === -1 ? undefined : prev[idx]
+      // 已存在的助手消息保持原位，用户消息插在它前面，保证显示顺序
+      const list = existing
+        ? [...prev.slice(0, idx), action.userMessage, ...prev.slice(idx)]
+        : [...prev, action.userMessage, placeholder(action.assistantMessageId, id)]
       const s: ChatState = {
         ...state,
         messages: { ...state.messages, [id]: list },
-        errors: { ...state.errors, [id]: undefined }
+        errors: existing?.status === 'error' ? state.errors : { ...state.errors, [id]: undefined }
       }
-      return withUi(s, id, 'SEND')
+      return sendFor(s, id, existing)
     }
     case 'ui':
       return withUi(state, action.conversationId, action.event)

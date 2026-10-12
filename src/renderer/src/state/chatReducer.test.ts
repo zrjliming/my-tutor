@@ -164,4 +164,50 @@ describe('chatReducer', () => {
     expect(s.messages.a.map((m) => m.id)).toEqual(['u1', 'a1'])
     expect(uiOf(s, 'a')).toBe('sending')
   })
+  it('error arriving before message/userSent keeps the conversation in error', () => {
+    let s = withTwoConversations()
+    s = chatReducer(s, { type: 'messages/loaded', conversationId: 'a', messages: [] })
+    s = chatReducer(s, {
+      type: 'chat/event',
+      event: {
+        type: 'error',
+        kind: 'not_logged_in',
+        message: 'login',
+        conversationId: 'a',
+        messageId: 'a1'
+      }
+    })
+    const user: Message = {
+      id: 'u1',
+      conversationId: 'a',
+      role: 'user',
+      content: 'hi',
+      structured: null,
+      status: 'done',
+      fromAsr: false,
+      createdAt: ''
+    }
+    s = chatReducer(s, { type: 'message/userSent', userMessage: user, assistantMessageId: 'a1' })
+    expect(uiOf(s, 'a')).toBe('error')
+    expect(s.errors.a).toBe('not_logged_in')
+    expect(s.messages.a.map((m) => m.id)).toEqual(['u1', 'a1'])
+    expect(s.messages.a.find((m) => m.id === 'a1')?.status).toBe('error')
+  })
+  it('done arriving before conversation/created leaves the new conversation idle', () => {
+    let s = withTwoConversations()
+    s = chatReducer(s, {
+      type: 'chat/event',
+      event: { type: 'done', rawText: 'hi', conversationId: 'c', messageId: 'm-c' }
+    })
+    s = chatReducer(s, {
+      type: 'conversation/created',
+      conversation: conv('c'),
+      assistantMessageId: 'm-c'
+    })
+    expect(s.conversations.map((c) => c.id)).toEqual(['c', 'a', 'b'])
+    expect(s.currentId).toBe('c')
+    expect(uiOf(s, 'c')).toBe('idle')
+    expect(s.messages.c).toHaveLength(1)
+    expect(s.messages.c[0]).toMatchObject({ id: 'm-c', status: 'done' })
+  })
 })
