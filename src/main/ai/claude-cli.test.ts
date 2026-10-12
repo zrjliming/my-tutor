@@ -94,6 +94,7 @@ describe('ClaudeCliProvider.chat', () => {
     expect(o.disallowedTools).toBeUndefined()
     expect(o.permissionMode).toBe('dontAsk')
     expect(o.cwd).toBe('/tmp/s')
+    expect(o.pathToClaudeCodeExecutable).toBeUndefined()
     expect(o.includePartialMessages).toBe(true)
     expect(o.model).toBe('sonnet')
     expect(o.outputFormat).toMatchObject({ type: 'json_schema' })
@@ -202,6 +203,12 @@ describe('ClaudeCliProvider.check / deleteSession', () => {
     const r = await p.check()
     expect(r.ok).toBe(true)
     expect(r.model).toBe('claude-opus-5')
+  })
+  it('passes cliPath through as pathToClaudeCodeExecutable', async () => {
+    const { fn, captured } = fakeQuery(() => [init(), success({ ok: true })])
+    const p = new ClaudeCliProvider({ sessionsDir: '/tmp/s', queryFn: fn, cliPath: '/x/claude' })
+    await p.check()
+    expect(captured.options!.pathToClaudeCodeExecutable).toBe('/x/claude')
   })
   it('check reports failure without throwing', async () => {
     const { fn } = fakeQuery(() => [failure('error_during_execution', ['authentication failed'])])

@@ -58,6 +58,8 @@
 - Agent SDK 0.3.296（内置 CLI 2.1.296，与本机一致）在 Node 下实测：`tools: []` + `permissionMode: dontAsk` + `outputFormat` 正常；**模型先流式输出正文（9 个 text_delta，首个约 2.6 s），再调用 StructuredOutput**，`structured_output` 在 result 里，`result` 字段是同一份 JSON 字符串；`sessionId` 自定 UUID + `resume` 续接正常（约 3 s，命中缓存 1272 token）；base64 PNG 图片块经流式输入送达并被正确识读；init 消息里订阅登录的 `apiKeySource` 为 `none`，不能用它判断是否登录。SDK 提供 `deleteSession(id, { dir })`，删会话用它。
 - `node:sqlite`（`DatabaseSync`）在 Electron 39 的 Node 22 里可用，不需要 better-sqlite3。
 - 2026-10-12 阶段 1 联调（Electron 主进程 + Agent SDK）：检测连接 4948 ms；开场白首字 2.2 s；纠错卡正常；停止后 resume 正常；课文图片识别正常；重启后数据保留。问题：① 检测连接 4948 ms（模型 claude-fable-5-1，只测一次），高于预期的 1～3 s；② 长回复的 text_delta 集中在末尾到达（伦敦长故事首个 delta 在 20.0 s，0.13 s 内到齐 84 个后即 done），长回复基本看不到流式；③ 点停止后约 2 s 内仍有 delta 到达并写进消息；④ 停止恰好落在完成瞬间时，done 之后又到了 aborted，ChatService 把已完成的消息改写成 stopped 并清空 structured（`src/main/chat/service.ts` error 分支），当时界面显示完成 + 生词，重启后变成「已停止」且没有生词。
+- 2026-10-12 whisper.cpp 1.9.5：`whisper-cli -m ggml-small.en.bin -f t.wav -l en -ojf -of t -np` 可用（`-of` 不带扩展名，自动写 `t.json`；`-np` 下 stdout 仍有输出，只解析 JSON 文件）；JSON 字段 transcription[].text / offsets / tokens[].p；合成 wav（`say` 3.4 s）识别耗时冷启动 7.46 s、热运行 0.32 s，文本正确。tokens 含 `[_BEG_]`、`[_TT_…]` 等特殊 token，算置信度时需过滤 `[_` 开头的。
+- 2026-10-12 Finder 双击 `build:unpack` 产物：检测连接首次失败 `spawn ENOTDIR`——SDK 用 `require.resolve` 找到的 CLI 在 `app.asar/` 内，spawn 无法执行；修复：打包后传 `pathToClaudeCodeExecutable` 指向 `app.asar.unpacked/`（`src/main/index.ts` `packagedCliPath`）。修复后通过：连接正常 · claude-fable-5-1 · 2856 ms（HOME 正常，未设 `CLAUDE_CONFIG_DIR`，复用 Claude Code 登录）。启动方式为 AppleScript 让 Finder 打开 .app（父进程 launchd，PATH=/usr/bin:/bin:/usr/sbin:/sbin），非真人双击。
 
 ## 3. 架构
 
