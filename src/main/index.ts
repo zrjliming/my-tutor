@@ -6,7 +6,7 @@ import { IPC } from '@shared/ipc'
 import type { ChatIpcEvent, ImageInput } from '@shared/types'
 import { createWindow, installCsp } from './window'
 import { resolvePaths } from './paths'
-import { openDatabase } from './db/index'
+import { openDatabase, type Db } from './db/index'
 import { markOrphanedStreamingAsStopped } from './db/messages'
 import type { AIProvider } from './ai/types'
 import { FakeAIProvider } from './ai/fake'
@@ -18,7 +18,11 @@ import { registerIpc } from './ipc/register'
 function packagedCliPath(): string | undefined {
   if (!app.isPackaged) return undefined
   const pkg = `@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/claude`
-  return require.resolve(pkg).replace(`app.asar${sep}`, `app.asar.unpacked${sep}`)
+  try {
+    return require.resolve(pkg).replace(`app.asar${sep}`, `app.asar.unpacked${sep}`)
+  } catch {
+    return undefined // 解析失败退回 SDK 默认路径
+  }
 }
 
 const MIME_BY_EXT: Record<string, ImageInput['mime']> = {
@@ -51,8 +55,16 @@ app.whenReady().then(() => {
   installCsp()
 
   const paths = resolvePaths(app.getPath('userData'))
-  const db = openDatabase(paths.db)
-  markOrphanedStreamingAsStopped(db)
+  let db: Db
+  try {
+    db = openDatabase(paths.db)
+    markOrphanedStreamingAsStopped(db)
+  } catch (e) {
+    // 不尝试重建，避免覆盖用户数据
+    dialog.showErrorBox('数据库打开失败', String((e as Error)?.message ?? e))
+    app.quit()
+    return
+  }
   const ai: AIProvider =
     process.env.SPEAKMATE_FAKE_AI === '1'
       ? new FakeAIProvider({
