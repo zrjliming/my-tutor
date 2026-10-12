@@ -2,43 +2,35 @@
 <style>
 /* 布局：模拟一个 macOS 窗口。左侧 6 项导航；聊天页再分会话列表 + 主区；其余页为单栏。 */
 :root {
-  --bg: #e6ebe9;          /* 窗口外的桌面底 */
+  --bg: #eef0f3;          /* 窗口外的桌面底 */
   --surface: #ffffff;     /* 主区 */
-  --surface-2: #f3f6f5;   /* 会话列表、输入条 */
-  --line: #dfe6e3;
-  --fg: #17211f;
-  --fg-2: #56635f;
-  --fg-3: #8a958f;
-  --accent: #0f7b6c;      /* 深青绿 */
+  --surface-2: #f5f6f8;   /* 侧栏、会话列表、输入条 */
+  --line: #dde1e7;
+  --fg: #1c2330;
+  --fg-2: #5b6575;
+  --fg-3: #8d96a5;
+  --accent: #1a4670;      /* 深蓝 */
   --accent-fg: #ffffff;
-  --accent-soft: #e1f3ee;
-  --user-bubble: #0f7b6c;
-  --ai-bubble: #f0f4f2;
-  --good: #1f7a4d; --good-soft: #e1f3e8;
-  --warn: #a35e00; --warn-soft: #fff1d6;
-  --bad: #d2503a;  --bad-soft: #fbe6e1;   /* 录音、错误：珊瑚红 */
-  --zh: #7a5a16;           /* 中文解释：琥珀棕 */
-  --side-bg: #10302b;      /* 深色侧栏 */
-  --side-fg: #cfdeda;
-  --side-fg-3: #7f9a93;
-  --side-active-bg: rgba(255,255,255,.10);
-  --side-active-fg: #ffffff;
-  --side-ok: #6fd3b8;
+  --accent-soft: #e2ebf5;
+  --user-bubble: #1a4670;
+  --ai-bubble: #f1f3f6;
+  --good: #2e7d4f; --good-soft: #e3f3ea;
+  --warn: #9a6a00; --warn-soft: #fff4d6;
+  --bad: #b3382c;  --bad-soft: #fbe6e3;
+  --zh: #6b5a2a;           /* 中文解释用的暖色 */
   --font: -apple-system, "SF Pro Text", "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --mono: "SF Mono", Menlo, Consolas, monospace;
   --radius: 10px;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg:#0e1413; --surface:#171f1d; --surface-2:#121917; --line:#28332f; --fg:#e4ebe8; --fg-2:#9fb0aa; --fg-3:#6c7d77;
-  --accent:#4fc9ae; --accent-fg:#0b1f1a; --accent-soft:#17352f; --user-bubble:#1d5c50; --ai-bubble:#212b28;
-  --good:#6fcf9b; --good-soft:#163424; --warn:#e6b65c; --warn-soft:#3a2d12; --bad:#f0897a; --bad-soft:#3d1d19; --zh:#dcc27f;
-  --side-bg:#0b1715; --side-fg:#b8c8c3; --side-fg-3:#66807a; --side-active-bg:rgba(79,201,174,.16); --side-active-fg:#dff7f0; --side-ok:#4fc9ae;
+  --bg:#15181d; --surface:#1e2228; --surface-2:#181b20; --line:#2c323b; --fg:#e6e9ee; --fg-2:#a4acb8; --fg-3:#6f7885;
+  --accent:#7fb3e3; --accent-fg:#0f1a25; --accent-soft:#1e2f42; --user-bubble:#27527d; --ai-bubble:#262b33;
+  --good:#7cc79a; --good-soft:#1c3328; --warn:#e2b85a; --warn-soft:#3a3016; --bad:#ef8a7e; --bad-soft:#3d1f1b; --zh:#d8c38e;
   color-scheme: dark; } }
 :root[data-theme="dark"] {
-  --bg:#0e1413; --surface:#171f1d; --surface-2:#121917; --line:#28332f; --fg:#e4ebe8; --fg-2:#9fb0aa; --fg-3:#6c7d77;
-  --accent:#4fc9ae; --accent-fg:#0b1f1a; --accent-soft:#17352f; --user-bubble:#1d5c50; --ai-bubble:#212b28;
-  --good:#6fcf9b; --good-soft:#163424; --warn:#e6b65c; --warn-soft:#3a2d12; --bad:#f0897a; --bad-soft:#3d1d19; --zh:#dcc27f;
-  --side-bg:#0b1715; --side-fg:#b8c8c3; --side-fg-3:#66807a; --side-active-bg:rgba(79,201,174,.16); --side-active-fg:#dff7f0; --side-ok:#4fc9ae;
+  --bg:#15181d; --surface:#1e2228; --surface-2:#181b20; --line:#2c323b; --fg:#e6e9ee; --fg-2:#a4acb8; --fg-3:#6f7885;
+  --accent:#7fb3e3; --accent-fg:#0f1a25; --accent-soft:#1e2f42; --user-bubble:#27527d; --ai-bubble:#262b33;
+  --good:#7cc79a; --good-soft:#1c3328; --warn:#e2b85a; --warn-soft:#3a3016; --bad:#ef8a7e; --bad-soft:#3d1f1b; --zh:#d8c38e;
   color-scheme: dark; }
 
 html, body { height: 100%; }
@@ -61,17 +53,14 @@ h1,h2,h3 { margin: 0; text-wrap: balance; }
 .titlebar .name { flex: 1; text-align: center; color: var(--fg-2); font-size: 12.5px; }
 .wbody { flex: 1; display: flex; min-height: 0; }
 
-.sidebar { width: 176px; flex: none; background: var(--side-bg); color: var(--side-fg); padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
-.sidebar .brand { display: flex; align-items: center; gap: 8px; padding: 4px 10px 12px; font-weight: 700; letter-spacing: .01em; color: var(--side-active-fg); }
-.sidebar .brand i { width: 10px; height: 10px; border-radius: 50%; background: var(--side-ok); box-shadow: 0 0 0 3px rgba(111,211,184,.25); display: block; }
-.sidebar button { text-align: left; padding: 7px 10px; border-radius: 7px; color: var(--side-fg); display: flex; align-items: center; gap: 8px; }
-.sidebar button .ic { width: 16px; text-align: center; color: var(--side-fg-3); }
-.sidebar button:hover { background: rgba(255,255,255,.05); }
-.sidebar button.active { background: var(--side-active-bg); color: var(--side-active-fg); font-weight: 600; }
-.sidebar button.active .ic { color: var(--side-ok); }
+.sidebar { width: 170px; flex: none; background: var(--surface-2); border-right: 1px solid var(--line); padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; }
+.sidebar button { text-align: left; padding: 7px 10px; border-radius: 7px; color: var(--fg-2); display: flex; align-items: center; gap: 8px; }
+.sidebar button .ic { width: 16px; text-align: center; color: var(--fg-3); }
+.sidebar button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.sidebar button.active .ic { color: var(--accent); }
 .sidebar .spacer { flex: 1; }
-.sidebar .status { font-size: 11px; color: var(--side-fg-3); padding: 6px 10px; line-height: 1.5; border-top: 1px solid rgba(255,255,255,.08); }
-.sidebar .status b { color: var(--side-ok); font-weight: 600; }
+.sidebar .status { font-size: 11px; color: var(--fg-3); padding: 6px 10px; line-height: 1.4; }
+.sidebar .status b { color: var(--good); font-weight: 600; }
 
 main { flex: 1; min-width: 0; display: flex; }
 .page { display: none; flex: 1; min-width: 0; }
@@ -116,7 +105,7 @@ main { flex: 1; min-width: 0; display: flex; }
 @keyframes blink { to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .cursor::after { animation: none; } }
 
-.corr { border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: var(--radius); overflow: hidden; width: 100%; }
+.corr { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; width: 100%; }
 .corr summary { list-style: none; cursor: pointer; padding: 7px 10px; display: flex; gap: 8px; align-items: center; background: var(--surface-2); font-size: 12.5px; }
 .corr summary::-webkit-details-marker { display: none; }
 .corr summary .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); }
@@ -234,8 +223,8 @@ ul.plain li { margin: 3px 0; }
 @media (max-width: 760px) {
   .window { height: auto; min-height: 0; }
   .wbody { flex-direction: column; }
-  .sidebar { width: auto; flex-direction: row; overflow-x: auto; padding: 6px; align-items: center; }
-  .sidebar .spacer, .sidebar .status, .sidebar .brand { display: none; }
+  .sidebar { width: auto; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 6px; }
+  .sidebar .spacer, .sidebar .status { display: none; }
   .sidebar button { white-space: nowrap; }
   .page.active { flex-direction: column; }
   .convs { width: auto; border-right: 0; border-bottom: 1px solid var(--line); max-height: 150px; }
@@ -255,7 +244,6 @@ ul.plain li { margin: 3px 0; }
   <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div><div class="name">SpeakMate</div></div>
   <div class="wbody">
     <nav class="sidebar" id="nav">
-      <div class="brand"><i></i>SpeakMate</div>
       <button class="active" data-nav="chat"><span class="ic">💬</span>聊天</button>
       <button data-nav="lessons"><span class="ic">📄</span>课程</button>
       <button data-nav="mistakes"><span class="ic">✎</span>错句本</button>
