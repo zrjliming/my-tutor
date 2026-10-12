@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Lesson } from '@shared/types'
 import { api } from '../api'
 
@@ -17,7 +17,14 @@ export function LessonsPage({
 }: Props): React.JSX.Element {
   const [lessons, setLessons] = useState<Lesson[]>([])
   const [currentId, setCurrentId] = useState<string | null>(null)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  // 确认状态绑定到具体条目，避免在 A 上点一次、切到 B 再点就删了 B
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const resetConfirm = (): void => {
+    clearTimeout(confirmTimer.current)
+    setConfirmId(null)
+  }
+  useEffect(() => () => clearTimeout(confirmTimer.current), [])
 
   const apply = useCallback((ls: Lesson[]) => {
     setLessons(ls)
@@ -31,12 +38,13 @@ export function LessonsPage({
   const current = lessons.find((l) => l.id === currentId) ?? null
   const remove = async (): Promise<void> => {
     if (!current) return
-    if (!confirmDelete) {
-      setConfirmDelete(true)
-      setTimeout(() => setConfirmDelete(false), 2500)
+    if (confirmId !== current.id) {
+      clearTimeout(confirmTimer.current)
+      setConfirmId(current.id)
+      confirmTimer.current = setTimeout(() => setConfirmId(null), 2500)
       return
     }
-    setConfirmDelete(false)
+    resetConfirm()
     await api.lessons.delete(current.id)
     await reload()
   }
@@ -58,7 +66,10 @@ export function LessonsPage({
           {lessons.map((l) => (
             <div
               key={l.id}
-              onClick={() => setCurrentId(l.id)}
+              onClick={() => {
+                resetConfirm()
+                setCurrentId(l.id)
+              }}
               className={`px-2.5 py-2 rounded-lg cursor-pointer flex flex-col gap-0.5 ${l.id === currentId ? 'bg-accent-soft' : 'hover:bg-surface-2'}`}
             >
               <span className="font-medium truncate">{l.title}</span>
@@ -81,7 +92,7 @@ export function LessonsPage({
                 开始课文问答
               </button>
               <button className={`${btn} text-bad`} onClick={() => void remove()}>
-                {confirmDelete ? '确认删除？' : '删除'}
+                {confirmId === current.id ? '确认删除？' : '删除'}
               </button>
             </div>
             <div className="whitespace-pre-wrap leading-relaxed text-sm">{current.body}</div>

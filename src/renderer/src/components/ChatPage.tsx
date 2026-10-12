@@ -1,4 +1,4 @@
-import { useState, type ClipboardEvent, type DragEvent } from 'react'
+import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent } from 'react'
 import { MODE_LABEL, type AIErrorKind } from '@shared/types'
 import { useChat } from '../store/ChatStore'
 import { ConversationList } from './ConversationList'
@@ -22,7 +22,14 @@ export function ChatPage({
   onNew: () => void
 }): React.JSX.Element {
   const chat = useChat()
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  // 确认状态绑定到具体会话，切换会话后不会误删另一个
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const resetConfirm = (): void => {
+    clearTimeout(confirmTimer.current)
+    setConfirmId(null)
+  }
+  useEffect(() => () => clearTimeout(confirmTimer.current), [])
   const [drag, setDrag] = useState(false)
   const err = chat.current ? chat.state.errors[chat.current.id] : undefined
   const retrying = chat.current ? chat.state.retrying[chat.current.id] : undefined
@@ -43,13 +50,15 @@ export function ChatPage({
   }
   const onDelete = async (): Promise<void> => {
     if (!chat.current) return
-    if (!confirmDelete) {
-      setConfirmDelete(true)
-      setTimeout(() => setConfirmDelete(false), 2500)
+    const id = chat.current.id
+    if (confirmId !== id) {
+      clearTimeout(confirmTimer.current)
+      setConfirmId(id)
+      confirmTimer.current = setTimeout(() => setConfirmId(null), 2500)
       return
     }
-    setConfirmDelete(false)
-    await chat.deleteConversation(chat.current.id)
+    resetConfirm()
+    await chat.deleteConversation(id)
   }
 
   return (
@@ -57,7 +66,10 @@ export function ChatPage({
       <ConversationList
         conversations={chat.state.conversations}
         currentId={chat.current?.id ?? null}
-        onSelect={(id) => void chat.select(id)}
+        onSelect={(id) => {
+          resetConfirm()
+          void chat.select(id)
+        }}
         onNew={onNew}
       />
       <div
@@ -90,7 +102,7 @@ export function ChatPage({
                 className="text-xs px-2 py-0.5 rounded-md border border-line text-bad"
                 onClick={() => void onDelete()}
               >
-                {confirmDelete ? '确认删除？' : '删除'}
+                {confirmId === chat.current.id ? '确认删除？' : '删除'}
               </button>
             </div>
             {retrying !== undefined && (
