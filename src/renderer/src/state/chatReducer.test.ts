@@ -210,4 +210,13 @@ describe('chatReducer', () => {
     expect(s.messages.c).toHaveLength(1)
     expect(s.messages.c[0]).toMatchObject({ id: 'm-c', status: 'done' })
   })
+  it('error/shown puts a plain message in the banner without touching ui state', () => {
+    const s = chatReducer(withTwoConversations(), {
+      type: 'error/shown',
+      conversationId: 'b',
+      message: '上一轮尚未结束'
+    })
+    expect(s.errors.b).toBe('上一轮尚未结束')
+    expect(uiOf(s, 'b')).toBe('sending')
+  })
 })

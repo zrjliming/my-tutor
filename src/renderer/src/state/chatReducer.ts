@@ -6,7 +6,7 @@ export interface ChatState {
   currentId: string | null
   messages: Record<string, Message[]>
   ui: Record<string, UiState>
-  errors: Record<string, string | undefined> // 存 AIErrorKind，UI 按 kind 查文案
+  errors: Record<string, string | undefined> // 存 AIErrorKind（UI 按 kind 查文案）或直接展示的中文提示
   retrying: Record<string, number | undefined>
 }
 
@@ -20,6 +20,7 @@ export type ChatAction =
   | { type: 'chat/event'; event: ChatIpcEvent }
   | { type: 'ui'; conversationId: string; event: UiEvent }
   | { type: 'error/cleared'; conversationId: string }
+  | { type: 'error/shown'; conversationId: string; message: string }
 
 export const initialState: ChatState = {
   conversations: [],
@@ -135,6 +136,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     }
     case 'ui':
       return withUi(state, action.conversationId, action.event)
+    case 'error/shown':
+      return { ...state, errors: { ...state.errors, [action.conversationId]: action.message } }
     case 'error/cleared':
       return withUi(
         { ...state, errors: { ...state.errors, [action.conversationId]: undefined } },

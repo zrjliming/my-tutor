@@ -3,19 +3,24 @@ import { canSend, isBusy, type UiState } from '../state/machine'
 
 interface Props {
   ui: UiState
-  onSend: (text: string) => void
+  onSend: (text: string) => Promise<void>
   onStop: () => void
   onPickImage: () => void
 }
 
 export function InputBar({ ui, onSend, onStop, onPickImage }: Props): React.JSX.Element {
   const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
   const busy = isBusy(ui)
   const submit = (): void => {
     const t = text.trim()
-    if (!t || !canSend(ui)) return
+    if (!t || !canSend(ui) || sending) return
+    setSending(true)
+    // 成功后才清空；失败时保留文字（错误提示由 store 显示）
     onSend(t)
-    setText('')
+      .then(() => setText(''))
+      .catch(() => {})
+      .finally(() => setSending(false))
   }
   const onKey = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -43,6 +48,7 @@ export function InputBar({ ui, onSend, onStop, onPickImage }: Props): React.JSX.
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={onKey}
+        maxLength={4000}
         disabled={ui === 'recording' || ui === 'transcribing'}
       />
       <button className={plain} title="语音输入在阶段 2 提供" disabled>
@@ -57,7 +63,7 @@ export function InputBar({ ui, onSend, onStop, onPickImage }: Props): React.JSX.
           className={`${btn} bg-accent text-white border-transparent`}
           title="发送"
           onClick={submit}
-          disabled={!canSend(ui) || !text.trim()}
+          disabled={!canSend(ui) || !text.trim() || sending}
         >
           ➤
         </button>

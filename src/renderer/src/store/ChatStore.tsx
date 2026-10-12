@@ -75,12 +75,24 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
   const sendMessage = useCallback(
     async (text: string, fromAsr = false) => {
       if (!currentId) return
-      const { userMessage, assistantMessageId } = await api.chat.send({
-        conversationId: currentId,
-        text,
-        fromAsr
-      })
-      dispatch({ type: 'message/userSent', userMessage, assistantMessageId })
+      try {
+        const { userMessage, assistantMessageId } = await api.chat.send({
+          conversationId: currentId,
+          text,
+          fromAsr
+        })
+        dispatch({ type: 'message/userSent', userMessage, assistantMessageId })
+      } catch (e) {
+        const raw = String((e as Error)?.message ?? e)
+        // 去掉 Electron 包装的 "Error invoking remote method 'x': Error: " 前缀
+        const message = raw.replace(/^Error invoking remote method '[^']*': (\w*Error: )?/, '')
+        dispatch({
+          type: 'error/shown',
+          conversationId: currentId,
+          message: `发送失败：${message}`
+        })
+        throw e
+      }
     },
     [currentId]
   )

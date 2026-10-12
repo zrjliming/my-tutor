@@ -111,7 +111,7 @@ export function ChatPage({
             <MessageList messages={chat.currentMessages} />
             <InputBar
               ui={chat.ui}
-              onSend={(t) => void chat.sendMessage(t)}
+              onSend={(t) => chat.sendMessage(t)}
               onStop={() => void chat.cancel()}
               onPickImage={() => onOpenLessonDialog()}
             />
