@@ -205,7 +205,7 @@ TutorResponse = {
 
 - 错误分类见 `AIErrorKind`。判断依据：结果 `subtype` 非 success 时 `errors[]` 文本含 login / auth（未登录）、SDK 抛出的二进制缺失错误、`system` 消息 `subtype: api_retry`（限流 / 网络，UI 显示"重试中"）、`AbortError`。
 - 设置页"检测 Claude 连接"：跑一次最小 `analyze`（约 600 token），显示登录方式、模型、耗时。
-- 启动时只检查 SDK 二进制存在，不发请求。
+- 启动时不发请求；二进制是否可用由设置页检测连接验证（阶段 4 打包验收再补启动检查）。
 
 ## 5. 语音层
 
@@ -315,7 +315,7 @@ idle → recording → transcribing → awaiting_confirmation → sending → st
 任一状态 → error → idle
 ```
 
-互斥：transcribing 时不能开始录音；streaming 时发送键变停止；recording 或 sending 开始时自动停止 speaking；切换会话时停止 speaking 并取消进行中的 streaming。
+互斥：transcribing 时不能开始录音；streaming 时发送键变停止；recording 或 sending 开始时自动停止 speaking；切换会话时停止 speaking；切换会话不取消进行中的回复，该回复在后台完成并落库；切回时可见。
 
 ### 8.4 其他页面
 
