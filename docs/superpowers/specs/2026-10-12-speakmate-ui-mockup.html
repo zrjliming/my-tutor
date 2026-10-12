@@ -1,0 +1,824 @@
+<title>SpeakMate 交互原型</title>
+<style>
+/* 布局：模拟一个 macOS 窗口。左侧 6 项导航；聊天页再分会话列表 + 主区；其余页为单栏。 */
+:root {
+  --bg: #eef0f3;          /* 窗口外的桌面底 */
+  --surface: #ffffff;     /* 主区 */
+  --surface-2: #f5f6f8;   /* 侧栏、会话列表、输入条 */
+  --line: #dde1e7;
+  --fg: #1c2330;
+  --fg-2: #5b6575;
+  --fg-3: #8d96a5;
+  --accent: #245c8c;      /* 墨蓝 */
+  --accent-fg: #ffffff;
+  --accent-soft: #e4eef7;
+  --user-bubble: #245c8c;
+  --ai-bubble: #f1f3f6;
+  --good: #2e7d4f; --good-soft: #e3f3ea;
+  --warn: #9a6a00; --warn-soft: #fff4d6;
+  --bad: #b3382c;  --bad-soft: #fbe6e3;
+  --zh: #6b5a2a;           /* 中文解释用的暖色 */
+  --font: -apple-system, "SF Pro Text", "PingFang SC", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: "SF Mono", Menlo, Consolas, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg:#15181d; --surface:#1e2228; --surface-2:#181b20; --line:#2c323b; --fg:#e6e9ee; --fg-2:#a4acb8; --fg-3:#6f7885;
+  --accent:#6fa8dc; --accent-fg:#0f1a25; --accent-soft:#1f3042; --user-bubble:#2f5f8c; --ai-bubble:#262b33;
+  --good:#7cc79a; --good-soft:#1c3328; --warn:#e2b85a; --warn-soft:#3a3016; --bad:#ef8a7e; --bad-soft:#3d1f1b; --zh:#d8c38e;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg:#15181d; --surface:#1e2228; --surface-2:#181b20; --line:#2c323b; --fg:#e6e9ee; --fg-2:#a4acb8; --fg-3:#6f7885;
+  --accent:#6fa8dc; --accent-fg:#0f1a25; --accent-soft:#1f3042; --user-bubble:#2f5f8c; --ai-bubble:#262b33;
+  --good:#7cc79a; --good-soft:#1c3328; --warn:#e2b85a; --warn-soft:#3a3016; --bad:#ef8a7e; --bad-soft:#3d1f1b; --zh:#d8c38e;
+  color-scheme: dark; }
+
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 13.5px; line-height: 1.5; padding-inline: 16px; padding-block: 16px; box-sizing: border-box; }
+* { box-sizing: border-box; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input, textarea, select { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+h1,h2,h3 { margin: 0; text-wrap: balance; }
+
+.intro { max-width: 980px; margin: 0 auto 12px; color: var(--fg-2); display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; }
+.intro strong { color: var(--fg); }
+.intro .hint { font-size: 12px; }
+
+.window { max-width: 1180px; height: min(760px, calc(100% - 60px)); min-height: 560px; margin: 0 auto; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,.18); display: flex; flex-direction: column; overflow: hidden; }
+.titlebar { height: 38px; display: flex; align-items: center; gap: 8px; padding: 0 12px; background: var(--surface-2); border-bottom: 1px solid var(--line); flex: none; }
+.lights { display: flex; gap: 7px; }
+.lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.lights i:nth-child(1){background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.titlebar .name { flex: 1; text-align: center; color: var(--fg-2); font-size: 12.5px; }
+.wbody { flex: 1; display: flex; min-height: 0; }
+
+.sidebar { width: 170px; flex: none; background: var(--surface-2); border-right: 1px solid var(--line); padding: 10px 8px; display: flex; flex-direction: column; gap: 2px; }
+.sidebar button { text-align: left; padding: 7px 10px; border-radius: 7px; color: var(--fg-2); display: flex; align-items: center; gap: 8px; }
+.sidebar button .ic { width: 16px; text-align: center; color: var(--fg-3); }
+.sidebar button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.sidebar button.active .ic { color: var(--accent); }
+.sidebar .spacer { flex: 1; }
+.sidebar .status { font-size: 11px; color: var(--fg-3); padding: 6px 10px; line-height: 1.4; }
+.sidebar .status b { color: var(--good); font-weight: 600; }
+
+main { flex: 1; min-width: 0; display: flex; }
+.page { display: none; flex: 1; min-width: 0; }
+.page.active { display: flex; }
+
+/* 聊天页 */
+.convs { width: 230px; flex: none; border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.convs .top { display: flex; align-items: center; justify-content: space-between; padding: 10px 10px 6px; }
+.convs .top h2 { font-size: 13px; color: var(--fg-2); font-weight: 600; }
+.convs ul { list-style: none; margin: 0; padding: 0 6px; overflow: auto; flex: 1; }
+.convs li { padding: 8px 8px; border-radius: 7px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+.convs li.active { background: var(--accent-soft); }
+.convs li .t { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.convs li .m { display: flex; gap: 6px; align-items: center; font-size: 11.5px; color: var(--fg-3); }
+.chip { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); color: var(--fg-2); white-space: nowrap; }
+.chip.mode { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+.btn { padding: 6px 12px; border-radius: 7px; background: var(--surface-2); border: 1px solid var(--line); color: var(--fg); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.btn.sm { padding: 3px 9px; font-size: 12px; }
+.btn.danger { color: var(--bad); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
+
+.chat { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.chat-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.chat-head h2 { font-size: 14px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.state { font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--line); color: var(--fg-2); }
+.state[data-s="recording"] { background: var(--bad-soft); color: var(--bad); border-color: transparent; }
+.state[data-s="transcribing"], .state[data-s="sending"], .state[data-s="streaming"] { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+.state[data-s="speaking"], .state[data-s="awaiting_confirmation"] { background: var(--good-soft); color: var(--good); border-color: transparent; }
+.state[data-s="error"] { background: var(--bad-soft); color: var(--bad); }
+
+.msgs { flex: 1; overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.msg { display: flex; flex-direction: column; gap: 6px; max-width: 78%; }
+.msg.user { align-self: flex-end; align-items: flex-end; }
+.msg.ai { align-self: flex-start; }
+.bubble { padding: 9px 12px; border-radius: 12px; white-space: pre-wrap; }
+.msg.user .bubble { background: var(--user-bubble); color: #fff; border-bottom-right-radius: 4px; }
+.msg.ai .bubble { background: var(--ai-bubble); border-bottom-left-radius: 4px; }
+.msg .meta { font-size: 11px; color: var(--fg-3); display: flex; gap: 8px; align-items: center; }
+.msg.ai .meta button { color: var(--accent); }
+.cursor::after { content: "▍"; color: var(--accent); animation: blink 1s steps(2) infinite; }
+@keyframes blink { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .cursor::after { animation: none; } }
+
+.corr { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; width: 100%; }
+.corr summary { list-style: none; cursor: pointer; padding: 7px 10px; display: flex; gap: 8px; align-items: center; background: var(--surface-2); font-size: 12.5px; }
+.corr summary::-webkit-details-marker { display: none; }
+.corr summary .tag { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); }
+.corr summary .tag.unc { background: var(--surface); border: 1px dashed var(--line); color: var(--fg-3); }
+.corr summary .arrow { margin-left: auto; color: var(--fg-3); font-size: 11px; }
+.corr[open] summary .arrow { transform: rotate(90deg); }
+.corr .body { padding: 8px 10px 10px; display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 13px; }
+.corr .body .k { color: var(--fg-3); font-size: 11.5px; }
+.corr .orig { text-decoration: line-through; color: var(--bad); text-decoration-color: var(--bad); }
+.corr .impr { color: var(--good); font-weight: 600; }
+.corr .zh { color: var(--zh); }
+.vocab { display: flex; flex-wrap: wrap; gap: 6px; }
+.vocab details { position: relative; }
+.vocab summary { list-style: none; cursor: pointer; font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.vocab summary::-webkit-details-marker { display: none; }
+.vocab .pop { margin-top: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: 12.5px; max-width: 320px; }
+.vocab .pop .zh { color: var(--zh); }
+.vocab .pop .ex { color: var(--fg-2); font-style: italic; }
+.vocab .pop .saved { color: var(--fg-3); font-size: 11px; }
+.sysnote { align-self: center; font-size: 12px; color: var(--fg-3); background: var(--surface-2); padding: 4px 10px; border-radius: 999px; }
+.sysnote.err { color: var(--bad); background: var(--bad-soft); }
+
+.inputbar { border-top: 1px solid var(--line); background: var(--surface-2); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.inputbar .asrtag { display: none; align-self: flex-start; font-size: 11.5px; padding: 2px 8px; border-radius: 5px; background: var(--good-soft); color: var(--good); }
+.inputbar .asrtag.show { display: inline-flex; gap: 6px; align-items: center; }
+.inputbar .asrtag.low { background: var(--warn-soft); color: var(--warn); }
+.inputbar .row { display: flex; gap: 8px; align-items: flex-end; }
+.inputbar textarea { flex: 1; min-width: 0; resize: none; height: 40px; max-height: 120px; }
+.ibtn { width: 36px; height: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); background: var(--surface); color: var(--fg-2); flex: none; font-size: 15px; }
+.ibtn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.ibtn.rec { background: var(--bad); color: #fff; border-color: transparent; }
+.ibtn.stop { background: var(--bad-soft); color: var(--bad); }
+.ibtn[disabled] { opacity: .45; cursor: not-allowed; }
+.rectime { font-family: var(--mono); font-size: 12px; color: var(--bad); min-width: 42px; display: none; }
+.rectime.show { display: inline; }
+.dropzone { position: absolute; inset: 0; background: var(--accent-soft); border: 2px dashed var(--accent); display: none; align-items: center; justify-content: center; color: var(--accent); font-size: 16px; z-index: 5; }
+.chat.drag .dropzone { display: flex; }
+.chat { position: relative; }
+
+/* 单栏页面 */
+.single { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+.single .head { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.single .head h2 { font-size: 15px; flex: 1; }
+.single .content { flex: 1; overflow: auto; padding: 16px 18px; }
+.two { display: grid; grid-template-columns: 260px 1fr; gap: 16px; min-height: 100%; }
+.list { display: flex; flex-direction: column; gap: 4px; }
+.list .item { padding: 9px 10px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; display: flex; flex-direction: column; gap: 3px; }
+.list .item.active { background: var(--accent-soft); }
+.list .item .s { font-size: 11.5px; color: var(--fg-3); }
+.card { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; background: var(--surface); }
+.card h3 { font-size: 14px; margin-bottom: 8px; }
+.card .zh { color: var(--zh); }
+.lesson-body { white-space: pre-wrap; line-height: 1.7; font-size: 14px; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.filters button { padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: 12px; color: var(--fg-2); }
+.filters button.active { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.rows { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.row-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: start; }
+.row-card .l1 { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row-card .due { font-size: 11px; color: var(--warn); background: var(--warn-soft); padding: 1px 6px; border-radius: 4px; }
+.row-card .mastered { font-size: 11px; color: var(--good); background: var(--good-soft); padding: 1px 6px; border-radius: 4px; }
+.row-card .acts { display: flex; gap: 6px; grid-row: span 3; }
+.dots { display: inline-flex; gap: 3px; }
+.dots i { width: 8px; height: 8px; border-radius: 50%; background: var(--line); display: block; }
+.dots i.on { background: var(--accent); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center; }
+.kv .k { color: var(--fg-2); font-size: 12.5px; }
+.stat-list { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; font-variant-numeric: tabular-nums; }
+.stat-list .n { text-align: right; font-weight: 600; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.level { font-size: 34px; font-weight: 700; letter-spacing: -.02em; color: var(--accent); line-height: 1; }
+.level small { font-size: 13px; color: var(--fg-2); font-weight: 400; letter-spacing: 0; margin-left: 8px; }
+ul.plain { margin: 0; padding-left: 18px; }
+ul.plain li { margin: 3px 0; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.toggle i { width: 34px; height: 20px; border-radius: 999px; background: var(--line); position: relative; display: block; transition: background .15s; }
+.toggle i::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .15s; }
+.toggle.on i { background: var(--accent); }
+.toggle.on i::after { left: 16px; }
+.ok { color: var(--good); } .no { color: var(--bad); } .muted { color: var(--fg-3); }
+.progress { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+.progress i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+.privacy { font-size: 12.5px; color: var(--fg-2); line-height: 1.6; }
+
+/* 弹窗 */
+.modal { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+.modal.open { display: flex; }
+.dialog { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; width: 560px; max-width: 100%; max-height: 90vh; overflow: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.dialog h2 { font-size: 15px; }
+.modes { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.modes button { text-align: left; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; display: flex; flex-direction: column; gap: 3px; }
+.modes button b { font-size: 13px; }
+.modes button span { font-size: 11.5px; color: var(--fg-2); }
+.modes button.active { border-color: var(--accent); background: var(--accent-soft); }
+.sub { display: none; flex-direction: column; gap: 8px; }
+.sub.show { display: flex; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips button { padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line); font-size: 12.5px; }
+.chips button.active { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.dialog .foot { display: flex; justify-content: flex-end; gap: 8px; }
+.dialog .foot .left { margin-right: auto; color: var(--fg-3); font-size: 12px; align-self: center; }
+.steps { display: flex; gap: 6px; font-size: 12px; color: var(--fg-3); }
+.steps span.on { color: var(--accent); font-weight: 600; }
+.preview { display: flex; gap: 10px; flex-wrap: wrap; }
+.preview .img { width: 130px; height: 96px; border-radius: 8px; background: repeating-linear-gradient(0deg, var(--surface-2) 0 14px, var(--line) 14px 15px); border: 1px solid var(--line); position: relative; font-size: 11px; color: var(--fg-3); display: flex; align-items: flex-end; padding: 6px; }
+.preview .img button { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); font-size: 11px; line-height: 1; }
+.notice { font-size: 12.5px; padding: 8px 10px; border-radius: 7px; background: var(--warn-soft); color: var(--warn); }
+.spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: sp .8s linear infinite; vertical-align: -2px; margin-right: 6px; }
+@keyframes sp { to { transform: rotate(360deg); } }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 12px; color: var(--fg-2); }
+.field textarea { min-height: 120px; resize: vertical; font-size: 13.5px; line-height: 1.6; }
+.guide { font-size: 12.5px; color: var(--fg-2); margin-top: 10px; }
+
+@media (max-width: 760px) {
+  .window { height: auto; min-height: 0; }
+  .wbody { flex-direction: column; }
+  .sidebar { width: auto; flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 6px; }
+  .sidebar .spacer, .sidebar .status { display: none; }
+  .sidebar button { white-space: nowrap; }
+  .page.active { flex-direction: column; }
+  .convs { width: auto; border-right: 0; border-bottom: 1px solid var(--line); max-height: 150px; }
+  .chat { min-height: 520px; }
+  .msg { max-width: 92%; }
+  .two, .grid2 { grid-template-columns: 1fr; }
+  .corr .body { grid-template-columns: 1fr; }
+}
+</style>
+
+<div class="intro">
+  <strong>SpeakMate 交互原型</strong>
+  <span class="hint">可点击：发送消息、麦克风、新建会话、拖图片进聊天区（或点图片按钮）、各页按钮。右上角的灰色标签是当前会话状态机。所有数据为示例。</span>
+</div>
+
+<div class="window">
+  <div class="titlebar"><div class="lights"><i></i><i></i><i></i></div><div class="name">SpeakMate</div></div>
+  <div class="wbody">
+    <nav class="sidebar" id="nav">
+      <button class="active" data-nav="chat"><span class="ic">💬</span>聊天</button>
+      <button data-nav="lessons"><span class="ic">📄</span>课程</button>
+      <button data-nav="mistakes"><span class="ic">✎</span>错句本</button>
+      <button data-nav="vocab"><span class="ic">Aa</span>生词本</button>
+      <button data-nav="analysis"><span class="ic">◔</span>学习分析</button>
+      <button data-nav="settings"><span class="ic">⚙</span>设置</button>
+      <div class="spacer"></div>
+      <div class="status">Claude <b>已登录</b> · 订阅<br>whisper <b>就绪</b> · small.en<br>TTS Samantha</div>
+    </nav>
+
+    <main>
+      <!-- 聊天 -->
+      <section class="page active" data-page="chat">
+        <div class="convs">
+          <div class="top"><h2>会话</h2><button class="btn sm primary" id="btn-new">＋ 新建</button></div>
+          <ul id="conv-list"></ul>
+        </div>
+        <div class="chat" id="chat">
+          <div class="dropzone">松开，识别为学习内容</div>
+          <div class="chat-head">
+            <h2 id="conv-title"></h2>
+            <span class="chip mode" id="conv-mode"></span>
+            <span class="state" id="state" data-s="idle">idle</span>
+            <button class="btn sm danger" id="btn-del-conv">删除</button>
+          </div>
+          <div class="msgs" id="msgs"></div>
+          <div class="inputbar">
+            <span class="asrtag" id="asrtag"><span>🎙 来自语音识别</span><span id="asrconf"></span><button id="asr-clear" title="清除标记">✕</button></span>
+            <div class="row">
+              <button class="ibtn" id="btn-img" title="选择图片，识别为学习内容">🖼</button>
+              <textarea id="input" placeholder="输入英文，或点麦克风说话…"></textarea>
+              <span class="rectime" id="rectime">0:00</span>
+              <button class="ibtn" id="btn-mic" title="开始录音">🎤</button>
+              <button class="ibtn" id="btn-speak" title="朗读最近一条 AI 回复">🔈</button>
+              <button class="ibtn primary" id="btn-send" title="发送">➤</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 课程 -->
+      <section class="page" data-page="lessons">
+        <div class="single">
+          <div class="head"><h2>课程</h2><button class="btn sm" id="btn-lesson-text">从文本新建</button><button class="btn sm" id="btn-lesson-img">从图片识别</button></div>
+          <div class="content"><div class="two">
+            <div class="list" id="lesson-list"></div>
+            <div id="lesson-detail"></div>
+          </div></div>
+        </div>
+      </section>
+
+      <!-- 错句本 -->
+      <section class="page" data-page="mistakes">
+        <div class="single">
+          <div class="head"><h2>错句本</h2><span class="muted" id="mistake-count"></span></div>
+          <div class="content">
+            <div class="filters" id="mistake-filters">
+              <button class="active" data-f="all">全部</button><button data-f="due">到期复习</button><button data-f="grammar">语法</button><button data-f="word_choice">用词</button><button data-f="naturalness">地道程度</button><button data-f="mastered">已掌握</button>
+            </div>
+            <div class="rows" id="mistake-rows"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 生词本 -->
+      <section class="page" data-page="vocab">
+        <div class="single">
+          <div class="head"><h2>生词本</h2><input id="vocab-search" placeholder="搜索单词" style="width:180px"></div>
+          <div class="content"><div class="rows" id="vocab-rows" style="margin-top:0"></div></div>
+        </div>
+      </section>
+
+      <!-- 学习分析 -->
+      <section class="page" data-page="analysis">
+        <div class="single">
+          <div class="head"><h2>学习分析</h2><span class="muted" id="profile-time">上次分析：今天 09:12</span><button class="btn sm" id="btn-analyze">更新分析</button><button class="btn sm primary" id="btn-targeted">开始针对性练习</button></div>
+          <div class="content">
+            <div class="grid2">
+              <div class="card">
+                <div class="level">B1<small>中级 · 近 30 天数据</small></div>
+                <p class="zh" style="margin:10px 0 0">能应付餐厅、购物等日常场景，句子基本完整。主要问题集中在不规则动词过去式和冠词，工作场景词汇量不足。相比两周前，第三人称单数的错误明显减少。</p>
+              </div>
+              <div class="card">
+                <h3>薄弱点</h3>
+                <div class="chips"><button class="active">不规则动词过去式</button><button class="active">冠词 a / the</button><button class="active">工作会议表达</button><button>介词 in / on / at</button></div>
+                <h3 style="margin-top:14px">近期进步</h3>
+                <ul class="plain"><li>第三人称单数 -s 错误：9 次 → 2 次</li><li>餐厅场景能主动追问（"Does it come with…?"）</li></ul>
+              </div>
+              <div class="card">
+                <h3>建议</h3>
+                <ul class="plain"><li>用"针对性练习"连做 3 次过去式对话，每次 10 轮。</li><li>工作会议场景先学 Lesson 7 再做角色扮演。</li><li>错句本里 5 条到期，先复习再开新会话。</li></ul>
+              </div>
+              <div class="card">
+                <h3>统计</h3>
+                <div class="stat-list">
+                  <span>错句 · 语法</span><span class="n">14</span>
+                  <span>错句 · 用词</span><span class="n">6</span>
+                  <span>错句 · 地道程度</span><span class="n">4</span>
+                  <span>错句 · 到期待复习</span><span class="n">5</span>
+                  <span>生词总数</span><span class="n">63</span>
+                  <span>生词 · 熟悉度 ≥ 4</span><span class="n">21</span>
+                  <span>练习会话 / 总轮数</span><span class="n">12 / 148</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 设置 -->
+      <section class="page" data-page="settings">
+        <div class="single">
+          <div class="head"><h2>设置</h2></div>
+          <div class="content" style="display:flex;flex-direction:column;gap:14px;max-width:720px">
+            <div class="card">
+              <h3>Claude 连接</h3>
+              <div class="kv">
+                <span class="k">状态</span><span id="claude-status"><span class="ok">● 已登录</span> <span class="muted">claude.ai 订阅 · Claude Code 2.1.296</span></span>
+                <span class="k">模型</span><span><select id="model"><option>账号默认（Opus）</option><option>sonnet</option><option>opus</option></select></span>
+                <span class="k"></span><span><button class="btn sm" id="btn-check">检测连接</button> <span class="muted" id="check-result"></span></span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>语音识别（whisper.cpp）</h3>
+              <div class="kv">
+                <span class="k">二进制</span><span><span class="ok">● 已找到</span> <span class="muted">/opt/homebrew/bin/whisper-cli</span></span>
+                <span class="k">模型</span><span id="model-status"><span class="no">● 未下载</span> <span class="muted">ggml-small.en.bin · 约 466 MB</span> <button class="btn sm" id="btn-dl">下载</button></span>
+                <span class="k"></span><span><div class="progress" id="dl-progress" style="display:none"><i></i></div></span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>朗读</h3>
+              <div class="kv">
+                <span class="k">音色</span><span><select><option>Samantha（en_US）</option><option>Daniel（en_GB）</option></select></span>
+                <span class="k">语速</span><span><input type="range" min="120" max="240" value="175" style="width:160px;padding:0;border:0;background:none"> <span class="muted">175</span></span>
+                <span class="k">自动朗读 AI 回复</span><span><button class="toggle on" id="tg-auto"><i></i><span>开</span></button></span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>学习</h3>
+              <div class="kv">
+                <span class="k">难度</span><span><select><option>初级</option><option selected>中级</option><option>高级</option></select></span>
+                <span class="k">中文解释</span><span><button class="toggle on" id="tg-zh"><i></i><span>开</span></button></span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>数据与隐私</h3>
+              <div class="kv"><span class="k">数据目录</span><span class="muted">~/Library/Application Support/speakmate/</span></div>
+              <p class="privacy" style="margin:10px 0 0">你输入的文字、确认后的课文文本会发送给 Claude。课文图片只在你点击"识别"时发送一次，之后只使用文本。录音在本机用 whisper.cpp 识别，识别完立即删除，不上传、不保留。会话、课程、错句、生词只保存在本机数据库。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<!-- 新建会话 -->
+<div class="modal" id="modal-new">
+  <div class="dialog">
+    <h2>新建会话</h2>
+    <div class="modes" id="modes">
+      <button data-mode="free" class="active"><b>自由聊天</b><span>随便聊，AI 顺带纠错</span></button>
+      <button data-mode="lesson"><b>课文问答</b><span>围绕一篇已保存的课程</span></button>
+      <button data-mode="roleplay"><b>角色扮演</b><span>AI 扮演场景中的角色</span></button>
+      <button data-mode="scenario"><b>场景任务</b><span>给你一个目标，完成为止</span></button>
+      <button data-mode="targeted"><b>针对性练习</b><span>按薄弱点和到期错句出题</span></button>
+    </div>
+    <div class="sub" id="sub-lesson">
+      <label class="muted">选择课程</label>
+      <div class="chips" id="lesson-chips"></div>
+    </div>
+    <div class="sub" id="sub-scenario">
+      <label class="muted">选择场景</label>
+      <div class="chips" id="scenario-chips">
+        <button class="active">机场</button><button>出租车</button><button>餐厅</button><button>购物</button><button>看病挂号</button><button>工作会议</button>
+      </div>
+    </div>
+    <div class="sub" id="sub-targeted">
+      <div class="notice" style="background:var(--accent-soft);color:var(--accent)">本次练习：不规则动词过去式、冠词 a / the、工作会议表达 + 到期错句 5 条</div>
+    </div>
+    <div class="foot"><span class="left">模式和课文在会话创建时固定，中途切换请新建会话</span><button class="btn" data-close>取消</button><button class="btn primary" id="btn-create">开始</button></div>
+  </div>
+</div>
+
+<!-- 识别为学习内容 -->
+<div class="modal" id="modal-lesson">
+  <div class="dialog">
+    <h2>识别为学习内容</h2>
+    <div class="steps"><span class="on" data-step="1">1 预览</span><span>›</span><span data-step="2">2 识别</span><span>›</span><span data-step="3">3 确认</span></div>
+    <div id="ls-1">
+      <div class="preview"><div class="img">lesson-05.jpg · 1.2 MB<button title="移除">✕</button></div><div class="img">lesson-05-p2.jpg · 0.9 MB<button title="移除">✕</button></div></div>
+      <div class="notice" style="margin-top:10px">图片会发送给 Claude 进行识别。识别完成并确认后，之后的练习只使用文本，不再发送图片。</div>
+      <div class="field" style="margin-top:10px"><label>或者直接粘贴文本（邮件、文档、课文）</label><textarea style="min-height:60px" placeholder="粘贴英文文本…"></textarea></div>
+    </div>
+    <div id="ls-2" hidden><p><span class="spin"></span>正在识别课文、标题和生词…</p></div>
+    <div id="ls-3" hidden>
+      <div class="field"><label>标题</label><input id="ls-title" value="Lesson 5: Nice to meet you"></div>
+      <div class="field"><label>正文（可修改）</label><textarea id="ls-body">Good morning.
+Good morning, Mr. Blake.
+This is Miss Sophie Dupont. Sophie is a new student. She is French.
+Sophie, this is Hans. He is German.
+Nice to meet you.</textarea></div>
+      <div class="field"><label>生词（识别出的，可删）</label><div class="chips"><button class="active">student 学生</button><button class="active">French 法国人</button><button class="active">German 德国人</button></div></div>
+    </div>
+    <div class="foot">
+      <button class="btn" data-close>取消</button>
+      <button class="btn primary" id="ls-next">识别</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = (s, el=document) => el.querySelector(s);
+  const $$ = (s, el=document) => Array.from(el.querySelectorAll(s));
+  const MODE = { free:'自由聊天', lesson:'课文问答', roleplay:'角色扮演', scenario:'场景任务', targeted:'针对性练习' };
+
+  // ---------- 示例数据 ----------
+  const lessons = [
+    { id:1, title:'Lesson 5: Nice to meet you', source:'图片', date:'10-10', body:'Good morning.\nGood morning, Mr. Blake.\nThis is Miss Sophie Dupont. Sophie is a new student. She is French.\nSophie, this is Hans. He is German.\nNice to meet you.', notes:'介绍他人用 This is …；国籍形容词首字母大写。', vocab:['student','French','German'] },
+    { id:2, title:'项目周会邮件（10-08）', source:'文本', date:'10-08', body:'Hi team,\nA quick reminder that the weekly sync is moved to Thursday 3pm. Please update the status of your tickets before the meeting and flag any blockers in the thread.\nThanks,\nLena', notes:'sync = 同步会；flag a blocker = 标出阻塞项。', vocab:['sync','blocker','flag'] },
+  ];
+  const convs = [
+    { id:1, title:'餐厅点餐', mode:'scenario', scenario:'餐厅', time:'今天 09:40', msgs:[
+      { role:'ai', text:"Welcome to Luigi's! Table for one? Here's the menu. What can I get you to drink first?" },
+      { role:'user', text:'I want a water and I goed to the washroom first.' },
+      { role:'ai', text:"Sure, a water coming right up. The washroom is just down the hall on the left. When you're back, would you like to hear today's specials?",
+        correction:{ original:'I goed to the washroom first.', improved:"I'll go to the washroom first.", zh:'go 是不规则动词，过去式是 went；但这里是即将要做的事，用 I\'ll go 更自然。', category:'grammar' },
+        vocab:[{w:'specials',zh:'今日特色菜',ex:"Would you like to hear today's specials?"}] },
+    ]},
+    { id:2, title:'Lesson 5: Nice to meet you', mode:'lesson', lessonId:1, time:'昨天', msgs:[
+      { role:'ai', text:"Let's work with Lesson 5. In the dialogue, Mr. Blake introduces Sophie. How would you introduce a new colleague to your team?" },
+      { role:'user', text:'This is Wei. He is a new engineer in our team.' },
+      { role:'ai', text:"Good. That's almost exactly how Mr. Blake does it. One small thing: we usually say \"on our team\". Now try introducing two people at once, like Sophie and Hans.",
+        correction:{ original:'in our team', improved:'on our team', zh:'英语里"在团队里"习惯用 on a team，in 不算错但不地道。', category:'naturalness' },
+        vocab:[{w:'colleague',zh:'同事',ex:'She is a colleague from the design team.'}] },
+    ]},
+    { id:3, title:'自由聊天', mode:'free', time:'10-09', msgs:[
+      { role:'ai', text:'Hi! What did you do this weekend?' },
+    ]},
+  ];
+  const mistakes = [
+    { id:1, original:'I goed to the washroom first.', improved:"I'll go to the washroom first.", zh:'go 的过去式是 went；这里是将来动作，用 I\'ll go。', category:'grammar', due:true, review:1 },
+    { id:2, original:'I buyed a ticket yesterday.', improved:'I bought a ticket yesterday.', zh:'buy 是不规则动词，过去式 bought。', category:'grammar', due:true, review:2 },
+    { id:3, original:'in our team', improved:'on our team', zh:'团队用 on a team 更地道。', category:'naturalness', due:false, review:0 },
+    { id:4, original:'Can I have a bill?', improved:'Can I have the bill?', zh:'结账时账单是确指的，用 the。', category:'grammar', due:true, review:1 },
+    { id:5, original:'We need to do a meeting tomorrow.', improved:'We need to have a meeting tomorrow.', zh:'开会用 have / hold a meeting，不用 do。', category:'word_choice', due:false, review:3 },
+    { id:6, original:'He don\'t like coffee.', improved:"He doesn't like coffee.", zh:'第三人称单数用 doesn\'t。', category:'grammar', due:false, review:4, mastered:true },
+  ];
+  const vocab = [
+    { w:'specials', zh:'今日特色菜', ex:"Would you like to hear today's specials?", fam:1, src:'会话 · 餐厅点餐' },
+    { w:'colleague', zh:'同事', ex:'She is a colleague from the design team.', fam:3, src:'会话 · Lesson 5' },
+    { w:'blocker', zh:'阻塞项', ex:'Please flag any blockers in the thread.', fam:2, src:'课程 · 项目周会邮件' },
+    { w:'sync', zh:'同步会', ex:'The weekly sync is moved to Thursday.', fam:4, src:'课程 · 项目周会邮件' },
+    { w:'student', zh:'学生', ex:'Sophie is a new student.', fam:5, src:'课程 · Lesson 5' },
+  ];
+  const replies = [
+    { text:"That sounds like a busy day. By the way, you'd usually say \"I went to the airport\" since go is irregular. Did you make your flight on time?",
+      correction:{ original:'I goed to the airport', improved:'I went to the airport', zh:'go 是不规则动词，过去式是 went。', category:'grammar' },
+      vocab:[{w:'make a flight',zh:'赶上航班',ex:'We barely made our flight.'}] },
+    { text:"Nice, that's a clear sentence. Just one thing: \"a\" before a vowel sound becomes \"an\", so \"an email\". What was the email about?",
+      correction:{ original:'a email', improved:'an email', zh:'元音音素前的不定冠词用 an。', category:'grammar' },
+      vocab:[{w:'follow up',zh:'跟进',ex:"I'll follow up with the client tomorrow."}] },
+    { text:"Got it. I heard \"I live in Shanghai for three years\" but that might be the microphone. If you still live there, say \"I've lived in Shanghai for three years\". Is that what you meant?",
+      correction:{ original:'I live in Shanghai for three years', improved:"I've lived in Shanghai for three years", zh:'持续到现在的状态用现在完成时。', category:'grammar', uncertain:true },
+      vocab:[] },
+  ];
+  let replyIdx = 0;
+  let cur = convs[0];
+  let state = 'idle';
+  let autoSpeak = true;
+  let streamTimer = null, speakTimer = null, recTimer = null, recSec = 0;
+  let asrCount = 0;
+
+  // ---------- 导航 ----------
+  $$('#nav button[data-nav]').forEach(b => b.addEventListener('click', () => showPage(b.dataset.nav)));
+  function showPage(name){
+    $$('#nav button[data-nav]').forEach(b => b.classList.toggle('active', b.dataset.nav===name));
+    $$('.page').forEach(p => p.classList.toggle('active', p.dataset.page===name));
+    if (name==='chat' && cur) stopSpeaking();
+  }
+
+  // ---------- 状态机 ----------
+  const LABEL = { idle:'idle', recording:'recording', transcribing:'transcribing', awaiting_confirmation:'awaiting_confirmation', sending:'sending', streaming:'streaming', speaking:'speaking', error:'error' };
+  function setState(s){
+    state = s;
+    const el = $('#state'); el.dataset.s = s; el.textContent = LABEL[s];
+    const mic = $('#btn-mic'), send = $('#btn-send'), input = $('#input');
+    mic.classList.toggle('rec', s==='recording');
+    mic.textContent = s==='recording' ? '■' : '🎤';
+    mic.title = s==='recording' ? '结束录音' : '开始录音';
+    mic.disabled = (s==='transcribing' || s==='sending' || s==='streaming');
+    $('#rectime').classList.toggle('show', s==='recording');
+    const streaming = (s==='sending' || s==='streaming');
+    send.classList.toggle('stop', streaming); send.classList.toggle('primary', !streaming);
+    send.textContent = streaming ? '■' : '➤';
+    send.title = streaming ? '停止生成' : '发送';
+    input.disabled = (s==='recording' || s==='transcribing');
+    $('#btn-img').disabled = streaming;
+  }
+
+  // ---------- 会话列表 ----------
+  function renderConvs(){
+    const ul = $('#conv-list'); ul.innerHTML = '';
+    convs.forEach(c => {
+      const li = document.createElement('li'); li.className = c===cur ? 'active' : '';
+      li.innerHTML = `<span class="t">${esc(c.title)}</span><span class="m"><span class="chip mode">${MODE[c.mode]}</span>${c.time}</span>`;
+      li.addEventListener('click', () => { cancelAll(); cur = c; renderConvs(); renderChat(); });
+      ul.appendChild(li);
+    });
+  }
+  function renderChat(){
+    $('#conv-title').textContent = cur.title;
+    $('#conv-mode').textContent = MODE[cur.mode] + (cur.scenario ? ' · '+cur.scenario : '');
+    const box = $('#msgs'); box.innerHTML = '';
+    cur.msgs.forEach(m => box.appendChild(renderMsg(m)));
+    if (cur.mode==='targeted') {
+      const n = document.createElement('div'); n.className='sysnote'; n.textContent='本次针对：不规则动词过去式 · 冠词 · 工作会议表达 · 到期错句 5 条'; box.prepend(n);
+    }
+    box.scrollTop = box.scrollHeight;
+    setState('idle');
+  }
+  function renderMsg(m){
+    const d = document.createElement('div'); d.className = 'msg '+m.role;
+    const b = document.createElement('div'); b.className = 'bubble'; b.textContent = m.text; d.appendChild(b);
+    if (m.role==='ai') {
+      if (m.correction) d.appendChild(renderCorr(m.correction));
+      if (m.vocab && m.vocab.length) d.appendChild(renderVocab(m.vocab));
+      const meta = document.createElement('div'); meta.className='meta';
+      meta.innerHTML = `<button data-act="speak">🔈 朗读</button>`;
+      meta.querySelector('button').addEventListener('click', () => speak(m.text));
+      d.appendChild(meta);
+    } else if (m.fromAsr) {
+      const meta = document.createElement('div'); meta.className='meta'; meta.textContent='🎙 语音输入'; d.appendChild(meta);
+    }
+    return d;
+  }
+  function renderCorr(c){
+    const det = document.createElement('details'); det.className='corr';
+    const cat = { grammar:'语法', word_choice:'用词', naturalness:'地道程度', other:'其他' }[c.category];
+    det.innerHTML = `<summary><span class="tag">纠错 · ${cat}</span>${c.uncertain ? '<span class="tag unc">可能是识别错误</span>' : ''}<span class="orig">${esc(c.original)}</span><span class="arrow">▶</span></summary>
+      <div class="body"><span class="k">原句</span><span class="orig">${esc(c.original)}</span><span class="k">改为</span><span class="impr">${esc(c.improved)}</span><span class="k">解释</span><span class="zh">${esc(c.zh)}</span></div>`;
+    return det;
+  }
+  function renderVocab(list){
+    const w = document.createElement('div'); w.className='vocab';
+    list.forEach(v => {
+      const det = document.createElement('details');
+      det.innerHTML = `<summary>${esc(v.w)}</summary><div class="pop"><div><b>${esc(v.w)}</b> <span class="zh">${esc(v.zh)}</span></div><div class="ex">${esc(v.ex)}</div><div class="saved">已加入生词本</div></div>`;
+      w.appendChild(det);
+    });
+    return w;
+  }
+  function note(text, err){ const n = document.createElement('div'); n.className='sysnote'+(err?' err':''); n.textContent=text; $('#msgs').appendChild(n); $('#msgs').scrollTop = 1e9; return n; }
+
+  // ---------- 发送 / 流式 ----------
+  $('#btn-send').addEventListener('click', () => {
+    if (state==='sending' || state==='streaming') { stopStreaming(); return; }
+    const t = $('#input').value.trim(); if (!t) return;
+    stopSpeaking();
+    const um = { role:'user', text:t, fromAsr: $('#asrtag').classList.contains('show') };
+    cur.msgs.push(um); $('#msgs').appendChild(renderMsg(um));
+    $('#input').value=''; clearAsrTag(); cur.turnCount = (cur.turnCount||0)+1;
+    setState('sending');
+    const r = replies[replyIdx++ % replies.length];
+    const am = { role:'ai', text:'' };
+    const d = renderMsg(am); d.querySelector('.bubble').classList.add('cursor'); d.querySelector('.meta').hidden = true;
+    $('#msgs').appendChild(d); $('#msgs').scrollTop = 1e9;
+    let i = 0;
+    setTimeout(() => {
+      if (state!=='sending') return;
+      setState('streaming');
+      streamTimer = setInterval(() => {
+        i += 2; d.querySelector('.bubble').textContent = r.text.slice(0, i); $('#msgs').scrollTop = 1e9;
+        if (i >= r.text.length) {
+          clearInterval(streamTimer); streamTimer=null;
+          am.text = r.text; am.correction = r.correction; am.vocab = r.vocab;
+          d.replaceWith(renderMsg(am)); cur.msgs.push(am);
+          if (r.correction && !r.correction.uncertain) mistakes.unshift({ id:Date.now(), original:r.correction.original, improved:r.correction.improved, zh:r.correction.zh, category:r.correction.category, due:false, review:0 });
+          (r.vocab||[]).forEach(v => vocab.unshift({ w:v.w, zh:v.zh, ex:v.ex, fam:0, src:'会话 · '+cur.title }));
+          renderMistakes(); renderVocabPage();
+          if (autoSpeak) speak(r.text); else setState('idle');
+        }
+      }, 30);
+    }, 700);
+  });
+  $('#input').addEventListener('keydown', e => { if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); $('#btn-send').click(); } });
+  function stopStreaming(){
+    if (streamTimer) { clearInterval(streamTimer); streamTimer=null; }
+    const last = $('#msgs .msg.ai:last-child .bubble'); if (last) last.classList.remove('cursor');
+    const partial = last ? last.textContent : '';
+    if (partial) { cur.msgs.push({ role:'ai', text: partial }); }
+    note('已停止生成，保留已收到的文本；本轮不记录纠错和生词');
+    setState('idle');
+  }
+
+  // ---------- 录音 / 识别 ----------
+  $('#btn-mic').addEventListener('click', () => {
+    if (state==='recording') { finishRecording(); return; }
+    if (state!=='idle' && state!=='awaiting_confirmation') return;
+    stopSpeaking();
+    recSec = 0; $('#rectime').textContent='0:00'; setState('recording');
+    recTimer = setInterval(() => { recSec++; $('#rectime').textContent = '0:'+String(recSec).padStart(2,'0'); if (recSec>=60) finishRecording(); }, 1000);
+  });
+  function finishRecording(){
+    clearInterval(recTimer); recTimer=null;
+    if (recSec < 1) { setState('idle'); note('没听到声音，请靠近麦克风再试', true); return; }
+    setState('transcribing');
+    setTimeout(() => {
+      asrCount++;
+      const low = asrCount % 3 === 0;
+      const samples = ['I goed to the airport yesterday and buyed a ticket.', 'I need to send a email to my manager before the meeting.', 'I live in Shanghai for three years.'];
+      $('#input').value = samples[(asrCount-1) % samples.length];
+      const tag = $('#asrtag'); tag.classList.add('show'); tag.classList.toggle('low', low);
+      $('#asrconf').textContent = low ? '· 识别不确定，请检查' : '· 置信度高';
+      setState('awaiting_confirmation'); $('#input').focus();
+    }, 1500);
+  }
+  function clearAsrTag(){ $('#asrtag').classList.remove('show','low'); }
+  $('#asr-clear').addEventListener('click', () => { clearAsrTag(); setState('idle'); });
+  $('#input').addEventListener('input', () => { if (state==='awaiting_confirmation' && !$('#input').value) { clearAsrTag(); setState('idle'); } });
+
+  // ---------- 朗读 ----------
+  function speak(text){
+    stopSpeaking(); setState('speaking');
+    const ms = Math.min(6000, 400 + text.length * 40);
+    speakTimer = setTimeout(() => { speakTimer=null; setState('idle'); }, ms);
+  }
+  function stopSpeaking(){ if (speakTimer) { clearTimeout(speakTimer); speakTimer=null; if (state==='speaking') setState('idle'); } }
+  $('#btn-speak').addEventListener('click', () => {
+    if (state==='speaking') { stopSpeaking(); return; }
+    const last = [...cur.msgs].reverse().find(m => m.role==='ai'); if (last) speak(last.text);
+  });
+  function cancelAll(){ if (streamTimer) { clearInterval(streamTimer); streamTimer=null; } stopSpeaking(); if (recTimer) { clearInterval(recTimer); recTimer=null; } clearAsrTag(); $('#input').value=''; }
+
+  // ---------- 删除会话 ----------
+  $('#btn-del-conv').addEventListener('click', () => {
+    const btn = $('#btn-del-conv');
+    if (btn.dataset.confirm !== '1') { btn.dataset.confirm='1'; btn.textContent='确认删除？'; setTimeout(() => { btn.dataset.confirm=''; btn.textContent='删除'; }, 2500); return; }
+    btn.dataset.confirm=''; btn.textContent='删除';
+    const i = convs.indexOf(cur); convs.splice(i,1);
+    if (!convs.length) convs.push({ id:Date.now(), title:'自由聊天', mode:'free', time:'刚刚', msgs:[{role:'ai',text:'Hi! What would you like to talk about today?'}] });
+    cur = convs[0]; renderConvs(); renderChat();
+    note('会话已删除。错句和生词已保留在错句本和生词本中');
+  });
+
+  // ---------- 新建会话 ----------
+  let newMode = 'free', newLesson = lessons[0], newScenario = '机场';
+  $('#btn-new').addEventListener('click', openNew);
+  $('#btn-targeted').addEventListener('click', () => { openNew(); pickMode('targeted'); });
+  function openNew(){ renderLessonChips(); pickMode('free'); $('#modal-new').classList.add('open'); }
+  $$('#modes button').forEach(b => b.addEventListener('click', () => pickMode(b.dataset.mode)));
+  function pickMode(m){
+    newMode = m;
+    $$('#modes button').forEach(b => b.classList.toggle('active', b.dataset.mode===m));
+    $('#sub-lesson').classList.toggle('show', m==='lesson');
+    $('#sub-scenario').classList.toggle('show', m==='roleplay' || m==='scenario');
+    $('#sub-targeted').classList.toggle('show', m==='targeted');
+  }
+  function renderLessonChips(){
+    const w = $('#lesson-chips'); w.innerHTML='';
+    lessons.forEach((l,i) => { const b = document.createElement('button'); b.textContent = l.title; b.className = i===0?'active':''; b.addEventListener('click', () => { newLesson=l; $$('button', w).forEach(x=>x.classList.toggle('active', x===b)); }); w.appendChild(b); });
+    newLesson = lessons[0];
+  }
+  $$('#scenario-chips button').forEach(b => b.addEventListener('click', () => { newScenario=b.textContent; $$('#scenario-chips button').forEach(x=>x.classList.toggle('active', x===b)); }));
+  $('#btn-create').addEventListener('click', () => {
+    const openers = {
+      free: 'Hi! What would you like to talk about today?',
+      lesson: () => `Let's work with "${newLesson.title}". Read the first two lines, then tell me in your own words who is being introduced.`,
+      roleplay: () => ({ '机场':"Good afternoon, welcome to the check-in counter. May I see your passport and booking reference?", '出租车':"Hi there, where are we headed today?", '餐厅':"Welcome! Table for one? Can I start you off with something to drink?", '购物':"Hi, welcome in. Are you looking for anything in particular today?", '看病挂号':"Good morning, do you have an appointment, or is this a walk-in?", '工作会议':"Morning everyone. Before we start, Wei, could you give us a quick update on the API migration?" })[newScenario],
+      scenario: () => `Your task: ${({ '机场':'change your flight to tomorrow morning', '出租车':'get to the airport by 5pm and ask for a receipt', '餐厅':'order a meal without nuts and ask for the bill', '购物':'return a shirt that is the wrong size', '看病挂号':'book an appointment for a persistent cough', '工作会议':'ask for one more week on a deadline and explain why' })[newScenario]}. I'll play the other person. Ready? "Hello, how can I help you today?"`,
+      targeted: "Let's practice. Yesterday was Saturday. Tell me three things you did yesterday, one sentence each. Pay attention to the verbs."
+    };
+    const o = openers[newMode]; const text = typeof o==='function' ? o() : o;
+    const title = newMode==='lesson' ? newLesson.title : (newMode==='roleplay'||newMode==='scenario') ? newScenario+(newMode==='roleplay'?' 角色扮演':' 任务') : MODE[newMode];
+    const c = { id:Date.now(), title, mode:newMode, scenario:(newMode==='roleplay'||newMode==='scenario')?newScenario:undefined, lessonId: newMode==='lesson'?newLesson.id:undefined, time:'刚刚', msgs:[{ role:'ai', text }] };
+    convs.unshift(c); cur = c; closeModals(); renderConvs(); renderChat(); showPage('chat');
+  });
+
+  // ---------- 识别为学习内容 ----------
+  let lsStep = 1;
+  function openLesson(){ lsStep = 1; renderLsStep(); $('#modal-lesson').classList.add('open'); }
+  $('#btn-img').addEventListener('click', openLesson);
+  $('#btn-lesson-img').addEventListener('click', openLesson);
+  $('#btn-lesson-text').addEventListener('click', openLesson);
+  const chat = $('#chat');
+  chat.addEventListener('dragover', e => { e.preventDefault(); chat.classList.add('drag'); });
+  chat.addEventListener('dragleave', e => { if (!chat.contains(e.relatedTarget)) chat.classList.remove('drag'); });
+  chat.addEventListener('drop', e => { e.preventDefault(); chat.classList.remove('drag'); openLesson(); });
+  document.addEventListener('paste', e => { if ($('#modal-lesson').classList.contains('open')) return; if ($('.page.active').dataset.page==='chat' && e.clipboardData && [...e.clipboardData.items].some(i => i.type.startsWith('image/'))) openLesson(); });
+  function renderLsStep(){
+    [1,2,3].forEach(n => { $('#ls-'+n).hidden = n!==lsStep; });
+    $$('.steps span[data-step]').forEach(s => s.classList.toggle('on', +s.dataset.step===lsStep));
+    $('#ls-next').textContent = lsStep===1 ? '识别' : lsStep===2 ? '识别中…' : '保存并开始课文问答';
+    $('#ls-next').disabled = lsStep===2;
+  }
+  $('#ls-next').addEventListener('click', () => {
+    if (lsStep===1) { lsStep=2; renderLsStep(); setTimeout(() => { lsStep=3; renderLsStep(); }, 1800); return; }
+    if (lsStep===3) {
+      const l = { id:Date.now(), title:$('#ls-title').value, source:'图片', date:'今天', body:$('#ls-body').value, notes:'介绍他人用 This is …；国籍形容词首字母大写。', vocab:['student','French','German'] };
+      lessons.unshift(l); renderLessons(l);
+      closeModals();
+      newMode='lesson'; newLesson=l; $('#btn-create').click();
+    }
+  });
+
+  // ---------- 课程页 ----------
+  let curLesson = lessons[0];
+  function renderLessons(sel){
+    if (sel) curLesson = sel;
+    const w = $('#lesson-list'); w.innerHTML='';
+    lessons.forEach(l => { const d = document.createElement('div'); d.className='item'+(l===curLesson?' active':''); d.innerHTML=`<span>${esc(l.title)}</span><span class="s">${l.source} · ${l.date} · 生词 ${l.vocab.length}</span>`; d.addEventListener('click', () => renderLessons(l)); w.appendChild(d); });
+    const l = curLesson;
+    $('#lesson-detail').innerHTML = `<div class="card"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px"><h3 style="margin:0;flex:1">${esc(l.title)}</h3><button class="btn sm primary" id="btn-lesson-qa">开始课文问答</button><button class="btn sm danger">删除</button></div>
+      <div class="lesson-body">${esc(l.body)}</div>
+      <p class="zh" style="margin:12px 0 6px">${esc(l.notes)}</p>
+      <div class="chips">${l.vocab.map(v=>`<button class="active">${esc(v)}</button>`).join('')}</div>
+      ${l.source==='图片' ? '<p class="muted" style="font-size:12px;margin:10px 0 0">原图 2 张已保存在本机，点击可查看</p>' : ''}</div>`;
+    $('#btn-lesson-qa').addEventListener('click', () => { openNew(); pickMode('lesson'); newLesson=l; $$('#lesson-chips button').forEach(b=>b.classList.toggle('active', b.textContent===l.title)); });
+  }
+
+  // ---------- 错句本 ----------
+  let mf = 'all';
+  $$('#mistake-filters button').forEach(b => b.addEventListener('click', () => { mf=b.dataset.f; $$('#mistake-filters button').forEach(x=>x.classList.toggle('active', x===b)); renderMistakes(); }));
+  function renderMistakes(){
+    const cat = { grammar:'语法', word_choice:'用词', naturalness:'地道程度', other:'其他' };
+    const list = mistakes.filter(m => mf==='all' ? !m.mastered : mf==='due' ? m.due && !m.mastered : mf==='mastered' ? m.mastered : m.category===mf && !m.mastered);
+    $('#mistake-count').textContent = `${mistakes.filter(m=>!m.mastered).length} 条待复习 · ${mistakes.filter(m=>m.due&&!m.mastered).length} 条到期`;
+    const w = $('#mistake-rows'); w.innerHTML = list.length ? '' : '<p class="muted">这个分类下没有错句</p>';
+    list.forEach(m => {
+      const d = document.createElement('div'); d.className='row-card';
+      d.innerHTML = `<div class="l1"><span class="chip">${cat[m.category]}</span>${m.mastered?'<span class="mastered">已掌握</span>':m.due?'<span class="due">到期复习</span>':`<span class="muted" style="font-size:11px">已复习 ${m.review} 次</span>`}</div>
+        <div class="acts">${m.mastered?'':'<button class="btn sm">标记已掌握</button>'}<button class="btn sm danger">删除</button></div>
+        <div><span class="orig" style="text-decoration:line-through;color:var(--bad)">${esc(m.original)}</span> → <span style="color:var(--good);font-weight:600">${esc(m.improved)}</span></div>
+        <div class="zh" style="font-size:12.5px">${esc(m.zh)}</div>`;
+      const mb = d.querySelector('.acts .btn:not(.danger)'); if (mb) mb.addEventListener('click', () => { m.mastered=true; renderMistakes(); });
+      d.querySelector('.danger').addEventListener('click', () => { mistakes.splice(mistakes.indexOf(m),1); renderMistakes(); });
+      w.appendChild(d);
+    });
+  }
+
+  // ---------- 生词本 ----------
+  $('#vocab-search').addEventListener('input', renderVocabPage);
+  function renderVocabPage(){
+    const q = $('#vocab-search').value.trim().toLowerCase();
+    const w = $('#vocab-rows'); w.innerHTML='';
+    vocab.filter(v => !q || v.w.toLowerCase().includes(q) || v.zh.includes(q)).forEach(v => {
+      const d = document.createElement('div'); d.className='row-card';
+      d.innerHTML = `<div class="l1"><b>${esc(v.w)}</b><span class="zh">${esc(v.zh)}</span><span class="dots" title="熟悉度 ${v.fam}/5">${[1,2,3,4,5].map(n=>`<i class="${n<=v.fam?'on':''}"></i>`).join('')}</span></div>
+        <div class="acts"><button class="btn sm" title="熟悉度 +1">＋</button><button class="btn sm">已掌握</button></div>
+        <div style="font-style:italic;color:var(--fg-2)">${esc(v.ex)}</div><div class="muted" style="font-size:11.5px">来源：${esc(v.src)}</div>`;
+      d.querySelector('.acts .btn').addEventListener('click', () => { v.fam = Math.min(5, v.fam+1); renderVocabPage(); });
+      d.querySelectorAll('.acts .btn')[1].addEventListener('click', () => { v.fam = 5; renderVocabPage(); });
+      w.appendChild(d);
+    });
+  }
+
+  // ---------- 学习分析 / 设置 ----------
+  $('#btn-analyze').addEventListener('click', () => { const b = $('#btn-analyze'); b.disabled=true; b.innerHTML='<span class="spin"></span>分析中'; setTimeout(() => { b.disabled=false; b.textContent='更新分析'; $('#profile-time').textContent='上次分析：刚刚'; }, 2000); });
+  $('#btn-check').addEventListener('click', () => { const r = $('#check-result'); r.innerHTML='<span class="spin"></span>检测中'; setTimeout(() => { r.innerHTML='<span class="ok">连接正常</span> · claude.ai 登录 · 模型 Opus · 1.3 秒 · 约 600 token'; }, 1500); });
+  $('#btn-dl').addEventListener('click', () => {
+    const p = $('#dl-progress'); p.style.display='block'; $('#btn-dl').disabled=true; let n=0;
+    const t = setInterval(() => { n+=7; p.querySelector('i').style.width=Math.min(100,n)+'%'; if (n>=100) { clearInterval(t); $('#model-status').innerHTML='<span class="ok">● 已下载</span> <span class="muted">ggml-small.en.bin · 466 MB</span> <button class="btn sm danger">删除</button>'; p.style.display='none'; } }, 120);
+  });
+  $$('.toggle').forEach(t => t.addEventListener('click', () => { t.classList.toggle('on'); t.querySelector('span').textContent = t.classList.contains('on') ? '开' : '关'; if (t.id==='tg-auto') autoSpeak = t.classList.contains('on'); }));
+
+  // ---------- 弹窗通用 ----------
+  function closeModals(){ $$('.modal').forEach(m => m.classList.remove('open')); }
+  $$('[data-close]').forEach(b => b.addEventListener('click', closeModals));
+  $$('.modal').forEach(m => m.addEventListener('click', e => { if (e.target===m) closeModals(); }));
+  document.addEventListener('keydown', e => { if (e.key==='Escape') closeModals(); });
+
+  function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  renderConvs(); renderChat(); renderLessons(); renderMistakes(); renderVocabPage();
+})();
+</script>
