@@ -1,6 +1,9 @@
-export {}
+import type { SpeakMateAPI } from '../shared/ipc'
+
 declare global {
   interface Window {
-    speakmate: unknown
+    speakmate: SpeakMateAPI
   }
 }
+
+export {}
