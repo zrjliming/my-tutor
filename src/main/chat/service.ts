@@ -160,6 +160,7 @@ export class ChatService {
     }
     let content = ''
     let terminal = false
+    let completed = false
     const emit = (ev: ChatEvent): void => {
       try {
         send({ ...ev, conversationId, messageId: assistantMessageId })
@@ -181,6 +182,7 @@ export class ChatService {
           content += ev.text
         } else if (ev.type === 'done') {
           terminal = true
+          completed = true
           const finalText = ev.structured?.reply ?? (content || ev.rawText)
           updateMessage(db, assistantMessageId, {
             content: finalText,
@@ -205,5 +207,7 @@ export class ChatService {
         emit({ type: 'error', kind: 'unknown', message: String((e as Error)?.message ?? e) })
       }
     }
+    // 首轮没成功时 CLI 可能已写下会话文件，不删的话下次带同一 sessionId 会被拒（already in use）
+    if (firstTurn && !completed) await ai.deleteSession(conversationId)
   }
 }

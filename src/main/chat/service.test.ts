@@ -148,6 +148,18 @@ describe('send', () => {
     expect(ai.calls[1]).toMatchObject({ firstTurn: true })
     expect(ai.calls[1].systemPrompt).toContain('Learner level')
   })
+  it('a stopped opening turn deletes the half-created Claude session so the next send starts fresh', async () => {
+    const ai = new FakeAIProvider({
+      events: [{ type: 'error', kind: 'aborted', message: 'aborted' }]
+    })
+    const svc = mk(ai)
+    const { conversation } = await svc.createConversation({ mode: 'free' })
+    await svc.whenIdle(conversation.id)
+    expect(ai.deleted).toEqual([conversation.id])
+    await svc.send({ conversationId: conversation.id, text: 'retry' })
+    await svc.whenIdle(conversation.id)
+    expect(ai.calls[1]).toMatchObject({ firstTurn: true })
+  })
   it('stores plain text and null structured when structured output is missing', async () => {
     const svc = mk(new FakeAIProvider({ omitStructured: true, reply: { reply: 'Just text' } }))
     const { conversation, assistantMessageId } = await svc.createConversation({ mode: 'free' })
