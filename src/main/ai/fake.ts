@@ -7,6 +7,8 @@ export interface FakeAIOptions {
   failWith?: AIErrorKind
   deltaDelayMs?: number
   omitStructured?: boolean
+  /** 设置后 chat() 原样产出这串事件（忽略 reply/failWith），用于脚本化边界情况。 */
+  events?: ChatEvent[]
 }
 
 const DEFAULT_REPLY: TutorResponse = {
@@ -31,6 +33,10 @@ export class FakeAIProvider implements AIProvider {
 
   async *chat(req: ChatRequest): AsyncIterable<ChatEvent> {
     this.calls.push(req)
+    if (this.opts.events) {
+      for (const ev of this.opts.events) yield ev
+      return
+    }
     if (this.opts.failWith) {
       yield {
         type: 'error',

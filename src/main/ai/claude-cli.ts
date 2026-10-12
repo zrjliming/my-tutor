@@ -141,6 +141,8 @@ export class ClaudeCliProvider implements AIProvider {
             const message = errs?.length ? errs.join('; ') : m.subtype
             yield { type: 'error', kind: classifyError(message), message }
           }
+          // result 是终止事件：之后的消息（如停止时补发的 abort）一律不再消费
+          return
         }
       }
     } catch (e) {

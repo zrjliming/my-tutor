@@ -129,6 +129,37 @@ describe('ClaudeCliProvider.chat', () => {
     )
     expect(events.at(-1)).toEqual({ type: 'done', structured: undefined, rawText: 'from result' })
   })
+  it('stops consuming the SDK stream once a result arrives', async () => {
+    let consumedAfterResult = false
+    const fn: QueryFn = () =>
+      (async function* () {
+        yield init()
+        yield success({ reply: 'ok' })
+        consumedAfterResult = true
+        yield failure('error_during_execution', ['late'])
+      })()
+    const p = new ClaudeCliProvider({ sessionsDir: '/tmp/s', queryFn: fn })
+    const events = await collect(
+      p.chat({ conversationId: 'c', firstTurn: false, text: 'x', signal: sig() })
+    )
+    expect(events).toEqual([{ type: 'done', structured: { reply: 'ok' }, rawText: '' }])
+    expect(consumedAfterResult).toBe(false)
+  })
+  it('stops consuming the SDK stream after an error result', async () => {
+    let consumedAfterResult = false
+    const fn: QueryFn = () =>
+      (async function* () {
+        yield failure('error_during_execution', ['boom'])
+        consumedAfterResult = true
+        yield success({ reply: 'late' })
+      })()
+    const p = new ClaudeCliProvider({ sessionsDir: '/tmp/s', queryFn: fn })
+    const events = await collect(
+      p.chat({ conversationId: 'c', firstTurn: false, text: 'x', signal: sig() })
+    )
+    expect(events).toEqual([{ type: 'error', kind: 'unknown', message: 'boom' }])
+    expect(consumedAfterResult).toBe(false)
+  })
   it('maps api_retry to retrying and error results to error kinds', async () => {
     const { fn } = fakeQuery(() => [
       init(),

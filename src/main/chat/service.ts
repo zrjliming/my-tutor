@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type {
+  ChatEvent,
   ChatIpcEvent,
   Conversation,
   CreateConversationInput,
@@ -158,6 +159,14 @@ export class ChatService {
       })
     }
     let content = ''
+    let terminal = false
+    const emit = (ev: ChatEvent): void => {
+      try {
+        send({ ...ev, conversationId, messageId: assistantMessageId })
+      } catch {
+        // 窗口已关闭等：发送失败不能影响已落库的结果
+      }
+    }
     try {
       for await (const ev of ai.chat({
         conversationId,
@@ -167,9 +176,11 @@ export class ChatService {
         signal: ac.signal,
         model: settings.model || undefined
       })) {
+        if (terminal) continue
         if (ev.type === 'text_delta') {
           content += ev.text
         } else if (ev.type === 'done') {
+          terminal = true
           const finalText = ev.structured?.reply ?? (content || ev.rawText)
           updateMessage(db, assistantMessageId, {
             content: finalText,
@@ -178,23 +189,21 @@ export class ChatService {
           })
           if (firstTurn) markSessionStarted(db, conversationId)
         } else if (ev.type === 'error') {
+          terminal = true
           updateMessage(db, assistantMessageId, {
             content,
             structured: null,
             status: ev.kind === 'aborted' ? 'stopped' : 'error'
           })
         }
-        send({ ...ev, conversationId, messageId: assistantMessageId })
+        emit(ev)
       }
     } catch (e) {
-      updateMessage(db, assistantMessageId, { content, structured: null, status: 'error' })
-      send({
-        type: 'error',
-        kind: 'unknown',
-        message: String((e as Error)?.message ?? e),
-        conversationId,
-        messageId: assistantMessageId
-      })
+      if (!terminal) {
+        terminal = true
+        updateMessage(db, assistantMessageId, { content, structured: null, status: 'error' })
+        emit({ type: 'error', kind: 'unknown', message: String((e as Error)?.message ?? e) })
+      }
     }
   }
 }

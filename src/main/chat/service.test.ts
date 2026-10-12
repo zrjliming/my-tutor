@@ -5,7 +5,7 @@ import { getConversation, listConversations } from '../db/conversations'
 import { listMessages } from '../db/messages'
 import { FakeAIProvider } from '../ai/fake'
 import { ChatService } from './service'
-import type { ChatIpcEvent } from '@shared/types'
+import type { ChatIpcEvent, TutorResponse } from '@shared/types'
 
 let db: Db
 let events: ChatIpcEvent[]
@@ -16,6 +16,16 @@ const ids = [
   '33333333-3333-4333-8333-333333333333',
   '44444444-4444-4444-8444-444444444444'
 ]
+const DONE_REPLY: TutorResponse = {
+  reply: 'Hello',
+  correction: {
+    original: 'I goed',
+    improved: 'I went',
+    explanationZh: 'go 的过去式是 went。',
+    category: 'grammar'
+  },
+  vocabulary: [{ word: 'commute', meaningZh: '通勤', example: 'My commute is long.' }]
+}
 const mk = (ai: FakeAIProvider): ChatService =>
   new ChatService({
     db,
@@ -157,6 +167,23 @@ describe('send', () => {
     expect(m.status).toBe('stopped')
     expect(m.content.length).toBeGreaterThan(0)
     expect(m.content.length).toBeLessThan('one two three four five six'.length)
+  })
+  it('ignores events after done: a late aborted does not overwrite the saved reply', async () => {
+    const reply = DONE_REPLY
+    const svc = mk(
+      new FakeAIProvider({
+        events: [
+          { type: 'text_delta', text: 'Hello' },
+          { type: 'done', structured: reply, rawText: 'Hello' },
+          { type: 'error', kind: 'aborted', message: 'aborted' }
+        ]
+      })
+    )
+    const { conversation, assistantMessageId } = await svc.createConversation({ mode: 'free' })
+    await svc.whenIdle(conversation.id)
+    const m = listMessages(db, conversation.id).find((x) => x.id === assistantMessageId)!
+    expect(m).toMatchObject({ status: 'done', content: 'Hello', structured: reply })
+    expect(events.map((e) => e.type)).toEqual(['text_delta', 'done'])
   })
   it('rejects unknown conversation', async () => {
     const svc = mk(new FakeAIProvider())
