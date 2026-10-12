@@ -1,16 +1,17 @@
 import { useState, type ClipboardEvent, type DragEvent } from 'react'
-import { MODE_LABEL } from '@shared/types'
+import { MODE_LABEL, type AIErrorKind } from '@shared/types'
 import { useChat } from '../store/ChatStore'
 import { ConversationList } from './ConversationList'
 import { MessageList } from './MessageList'
 import { InputBar } from './InputBar'
 import { StatePill } from './StatePill'
 
-const ERROR_TEXT: Record<string, string> = {
+const ERROR_TEXT: Record<Exclude<AIErrorKind, 'aborted'>, string> = {
   not_logged_in: 'Claude Code 未登录或不可用，去设置页点"检测连接"。',
   binary_missing: '找不到 Claude 二进制，请重新安装依赖。',
   rate_limited: '请求被限流，稍后再试。',
-  network: '网络异常，稍后再试。'
+  network: '网络异常，稍后再试。',
+  unknown: '请求失败，请稍后再试。'
 }
 
 export function ChatPage({
@@ -96,7 +97,9 @@ export function ChatPage({
             )}
             {err && (
               <div className="px-4 py-1.5 text-xs text-bad bg-bad-soft flex items-center gap-2">
-                <span className="flex-1">{ERROR_TEXT[err] ?? err}</span>
+                <span className="flex-1">
+                  {ERROR_TEXT[err as Exclude<AIErrorKind, 'aborted'>] ?? err}
+                </span>
                 <button className="underline" onClick={chat.clearError}>
                   知道了
                 </button>
