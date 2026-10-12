@@ -15,9 +15,11 @@ const ERROR_TEXT: Record<Exclude<AIErrorKind, 'aborted'>, string> = {
 }
 
 export function ChatPage({
-  onOpenLessonDialog
+  onOpenLessonDialog,
+  onNew
 }: {
   onOpenLessonDialog: (files?: File[]) => void
+  onNew: () => void
 }): React.JSX.Element {
   const chat = useChat()
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -55,7 +57,7 @@ export function ChatPage({
         conversations={chat.state.conversations}
         currentId={chat.current?.id ?? null}
         onSelect={(id) => void chat.select(id)}
-        onNew={() => void chat.createConversation({ mode: 'free' })}
+        onNew={onNew}
       />
       <div
         className="flex-1 min-w-0 flex flex-col relative"
