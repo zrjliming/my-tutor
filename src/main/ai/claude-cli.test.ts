@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import type { Options, SDKMessage, SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import { ClaudeCliProvider, type QueryFn } from './claude-cli'
 import { LessonExtractionSchema } from '@shared/schemas'
@@ -159,6 +159,20 @@ describe('ClaudeCliProvider.chat', () => {
     )
     expect(events).toEqual([{ type: 'error', kind: 'unknown', message: 'boom' }])
     expect(consumedAfterResult).toBe(false)
+  })
+  it('extracts reply from a JSON result string when structured output is invalid', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { fn } = fakeQuery(() => [
+      init(),
+      success({ nope: 1 }, '{"reply":"Hi there","vocabulary":"bad"}')
+    ])
+    const p = new ClaudeCliProvider({ sessionsDir: '/tmp/s', queryFn: fn })
+    const events = await collect(
+      p.chat({ conversationId: 'c', firstTurn: false, text: 'x', signal: sig() })
+    )
+    expect(events.at(-1)).toEqual({ type: 'done', structured: undefined, rawText: 'Hi there' })
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
   })
   it('maps api_retry to retrying and error results to error kinds', async () => {
     const { fn } = fakeQuery(() => [

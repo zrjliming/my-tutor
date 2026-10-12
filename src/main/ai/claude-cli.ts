@@ -53,6 +53,16 @@ async function* userMessage(
   } as unknown as SDKUserMessage
 }
 
+/** result 有时是整段 JSON 原文：能取出 reply 就用它，避免把 JSON 展示给用户。 */
+function replyFromJson(s: string): string | undefined {
+  try {
+    const v = JSON.parse(s) as { reply?: unknown } | null
+    return typeof v?.reply === 'string' ? v.reply : undefined
+  } catch {
+    return undefined
+  }
+}
+
 export function classifyError(message: string): AIErrorKind {
   const m = message.toLowerCase()
   if (m.includes('native cli binary') || m.includes('enoent')) return 'binary_missing'
@@ -130,7 +140,12 @@ export class ClaudeCliProvider implements AIProvider {
         } else if (m.type === 'result') {
           if (m.subtype === 'success') {
             const parsed = schema.safeParse(m.structured_output)
-            const rawText = text || (typeof m.result === 'string' ? m.result : '')
+            const resultText = typeof m.result === 'string' ? m.result : ''
+            let rawText = text || resultText
+            if (!parsed.success) {
+              console.warn('[speakmate] structured output missing or invalid, degrading to text')
+              if (!text) rawText = replyFromJson(resultText) ?? rawText
+            }
             yield {
               type: 'done',
               structured: parsed.success ? (parsed.data as TutorResponse) : undefined,
