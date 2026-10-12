@@ -119,3 +119,49 @@ export interface AICheckResult {
 }
 
 export const SCENARIOS = ['机场', '出租车', '餐厅', '购物', '看病挂号', '工作会议'] as const
+
+// ---- 语音（阶段 2） ----
+export interface ASRResult {
+  text: string
+  confidence: number
+  segments: Array<{ text: string; startMs: number; endMs: number }>
+}
+
+export interface TTSVoice {
+  id: string
+  label: string
+  lang: string
+}
+
+export interface VoiceStatus {
+  binaryPath: string
+  binaryFound: boolean
+  modelPath: string
+  modelFound: boolean
+  modelBytes: number | null
+  downloading: boolean
+}
+
+export type ModelProgressEvent =
+  | { type: 'progress'; received: number; total: number | null }
+  | { type: 'done' }
+  | { type: 'error'; message: string }
+  | { type: 'cancelled' }
+
+export type ASRErrorKind =
+  'binary_missing' | 'model_missing' | 'timeout' | 'aborted' | 'empty' | 'failed'
+
+export type TranscribeOutcome =
+  { ok: true; result: ASRResult } | { ok: false; kind: ASRErrorKind; message: string }
+
+export type SpeakOutcome = { ok: true } | { ok: false; kind: 'timeout' | 'failed'; message: string }
+
+export const MAX_RECORDING_SECONDS = 60
+export const MAX_WAV_BYTES = 2_100_000
+export const ASR_LOW_CONFIDENCE = 0.6
+export const SILENCE_RMS = 0.01
+export const WHISPER_MODEL_FILE = 'ggml-small.en.bin'
+export const WHISPER_MODEL_URL =
+  'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin'
+export const TTS_RATE_MIN = 100
+export const TTS_RATE_MAX = 300

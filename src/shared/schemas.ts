@@ -76,5 +76,19 @@ export const SettingsPatchSchema = z.object({
   model: z.string().max(50).optional(),
   difficulty: DifficultySchema.optional(),
   chineseExplanations: z.boolean().optional(),
-  autoSpeak: z.boolean().optional()
+  autoSpeak: z.boolean().optional(),
+  voice: z.string().min(1).max(60).optional(),
+  rate: z.number().int().min(100).max(300).optional(),
+  whisperBinaryPath: z.string().max(500).optional(),
+  whisperModelPath: z.string().max(500).optional()
+})
+
+export const TranscribeInputSchema = z.object({
+  wav: z
+    .instanceof(Uint8Array)
+    .refine((b) => b.byteLength > 44 && b.byteLength <= 2_100_000, { message: '音频大小不合法' })
+})
+
+export const SpeakInputSchema = z.object({
+  text: z.string().trim().min(1).max(4000)
 })

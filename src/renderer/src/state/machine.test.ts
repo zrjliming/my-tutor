@@ -19,6 +19,7 @@ describe('transition', () => {
   it('ignores illegal events', () => {
     expect(transition('transcribing', 'START_RECORDING')).toBe('transcribing')
     expect(transition('streaming', 'SEND')).toBe('streaming')
+    expect(transition('recording', 'SEND')).toBe('recording')
     expect(transition('idle', 'DONE')).toBe('idle')
   })
   it('stop and failure', () => {
