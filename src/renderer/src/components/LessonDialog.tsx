@@ -10,7 +10,7 @@ interface Props {
   open: boolean
   onClose: () => void
   initialFiles?: File[]
-  pickFromDisk?: boolean
+  initialRaw?: ImageInput[]
   onSaved?: () => void
 }
 
@@ -18,7 +18,7 @@ export function LessonDialog({
   open,
   onClose,
   initialFiles,
-  pickFromDisk,
+  initialRaw,
   onSaved
 }: Props): React.JSX.Element {
   const chat = useChat()
@@ -43,25 +43,35 @@ export function LessonDialog({
 
   useEffect(() => {
     if (!open) return
+    let cancelled = false
     const load = async (): Promise<void> => {
       try {
+        let loaded: ImageInput[] | null = null
         if (initialFiles?.length)
-          setImages(await Promise.all(initialFiles.slice(0, 4).map(fileToImageInput)))
-        else if (pickFromDisk) {
-          const raw = await api.image.pick()
-          setImages(await Promise.all(raw.slice(0, 4).map(rawToImageInput)))
-        }
+          loaded = await Promise.all(initialFiles.slice(0, 4).map(fileToImageInput))
+        else if (initialRaw?.length)
+          loaded = await Promise.all(initialRaw.slice(0, 4).map(rawToImageInput))
+        if (loaded && !cancelled) setImages(loaded)
       } catch (e) {
-        setError(String((e as Error).message ?? e))
+        if (!cancelled) setError(String((e as Error).message ?? e))
       }
     }
     void load()
-  }, [open, initialFiles, pickFromDisk])
+    return () => {
+      cancelled = true
+    }
+  }, [open, initialFiles, initialRaw])
 
   const addFromDisk = async (): Promise<void> => {
-    const raw = await api.image.pick()
-    const more = await Promise.all(raw.map(rawToImageInput))
-    setImages((prev) => [...prev, ...more].slice(0, 4))
+    const room = 4 - images.length
+    if (room <= 0) return
+    try {
+      const raw = await api.image.pick()
+      const more = await Promise.all(raw.slice(0, room).map(rawToImageInput))
+      setImages((prev) => [...prev, ...more].slice(0, 4))
+    } catch (e) {
+      setError(String((e as Error).message ?? e))
+    }
   }
 
   const extract = async (): Promise<void> => {

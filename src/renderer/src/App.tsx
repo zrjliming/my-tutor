@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import type { Mode } from '@shared/types'
+import type { ImageInput, Mode } from '@shared/types'
+import { api } from './api'
 import { ChatProvider } from './store/ChatStore'
 import { Sidebar, type Page } from './components/Sidebar'
 import { ChatPage } from './components/ChatPage'
@@ -10,11 +11,17 @@ import { LessonDialog } from './components/LessonDialog'
 export default function App(): React.JSX.Element {
   const [page, setPage] = useState<Page>('chat')
   const [newOpen, setNewOpen] = useState<{ mode?: Mode; lessonId?: string } | null>(null)
-  const [lessonOpen, setLessonOpen] = useState<{ files?: File[]; pick?: boolean } | null>(null)
+  const [lessonOpen, setLessonOpen] = useState<{ files?: File[]; raw?: ImageInput[] } | null>(null)
   const [lessonsKey, setLessonsKey] = useState(0)
 
-  const openLessonDialog = (files?: File[]): void =>
-    setLessonOpen(files?.length ? { files } : { pick: true })
+  const pickAndOpen = async (): Promise<void> => {
+    const raw = await api.image.pick()
+    setLessonOpen({ raw })
+  }
+  const openLessonDialog = (files?: File[]): void => {
+    if (files?.length) setLessonOpen({ files })
+    else void pickAndOpen()
+  }
 
   return (
     <ChatProvider>
@@ -28,7 +35,7 @@ export default function App(): React.JSX.Element {
             <LessonsPage
               refreshKey={lessonsKey}
               onNewFromText={() => setLessonOpen({})}
-              onNewFromImage={() => setLessonOpen({ pick: true })}
+              onNewFromImage={() => void pickAndOpen()}
               onStartQa={(lessonId) => {
                 setNewOpen({ mode: 'lesson', lessonId })
                 setPage('chat')
@@ -48,7 +55,7 @@ export default function App(): React.JSX.Element {
         open={lessonOpen !== null}
         onClose={() => setLessonOpen(null)}
         initialFiles={lessonOpen?.files}
-        pickFromDisk={lessonOpen?.pick}
+        initialRaw={lessonOpen?.raw}
         onSaved={() => {
           setLessonsKey((k) => k + 1)
           setPage('chat')
