@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ImageInput, LessonExtraction } from '@shared/types'
 import { api } from '../api'
 import { useChat } from '../store/ChatStore'
@@ -29,6 +29,11 @@ export function LessonDialog({
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [wasOpen, setWasOpen] = useState(open)
+  // 每次识别递增；关闭弹窗时也递增，使在途的识别结果作废
+  const extractToken = useRef(0)
+  useEffect(() => {
+    if (!open) extractToken.current++
+  }, [open])
 
   if (open !== wasOpen) {
     setWasOpen(open)
@@ -75,6 +80,7 @@ export function LessonDialog({
   }
 
   const extract = async (): Promise<void> => {
+    const token = ++extractToken.current
     setStep('extracting')
     setError(null)
     try {
@@ -82,9 +88,11 @@ export function LessonDialog({
         images: images.length ? images : undefined,
         text: text.trim() || undefined
       })
+      if (token !== extractToken.current) return
       setDraft(r)
       setStep('edit')
     } catch (e) {
+      if (token !== extractToken.current) return
       setError(String((e as Error).message ?? e))
       setStep('input')
     }
