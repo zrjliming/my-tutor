@@ -47,7 +47,15 @@ app.whenReady().then(() => {
   const db = openDatabase(paths.db)
   const ai: AIProvider =
     process.env.SPEAKMATE_FAKE_AI === '1'
-      ? new FakeAIProvider({ deltaDelayMs: 40 })
+      ? new FakeAIProvider({
+          deltaDelayMs: 40,
+          analyzeResult: {
+            title: 'Lesson 5: Nice to meet you',
+            body: 'Good morning.\nGood morning, Mr. Blake.',
+            vocabulary: [{ word: 'morning', meaningZh: '早上', example: 'Good morning.' }],
+            notesZh: '问候与介绍。'
+          }
+        })
       : new ClaudeCliProvider({ sessionsDir: paths.sessionsDir })
   const send = (event: ChatIpcEvent): void => {
     for (const w of BrowserWindow.getAllWindows()) w.webContents.send(IPC.chatEvent, event)

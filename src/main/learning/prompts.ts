@@ -11,7 +11,7 @@ export const EXTRACT_LESSON_PROMPT: string = extractLesson
 export const OPENING_INSTRUCTION =
   '(The session starts now. Greet the learner in one or two sentences and ask your first question. No correction this turn.)'
 
-export const SCENARIOS = ['机场', '出租车', '餐厅', '购物', '看病挂号', '工作会议'] as const
+export { SCENARIOS } from '@shared/types'
 
 export interface PromptContext {
   mode: Mode

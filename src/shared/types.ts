@@ -117,3 +117,5 @@ export interface AICheckResult {
   durationMs?: number
   message: string
 }
+
+export const SCENARIOS = ['机场', '出租车', '餐厅', '购物', '看病挂号', '工作会议'] as const
