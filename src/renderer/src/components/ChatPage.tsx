@@ -29,6 +29,7 @@ export function ChatPage({
 
   const onDrop = (e: DragEvent): void => {
     e.preventDefault()
+    e.stopPropagation()
     setDrag(false)
     const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'))
     if (files.length) onOpenLessonDialog(files)

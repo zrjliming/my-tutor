@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ImageInput, Mode } from '@shared/types'
 import { api } from './api'
 import { ChatProvider } from './store/ChatStore'
@@ -14,6 +14,17 @@ export default function App(): React.JSX.Element {
   const [newOpen, setNewOpen] = useState<{ mode?: Mode; lessonId?: string } | null>(null)
   const [lessonOpen, setLessonOpen] = useState<{ files?: File[]; raw?: ImageInput[] } | null>(null)
   const [lessonsKey, setLessonsKey] = useState(0)
+
+  useEffect(() => {
+    // 拖到聊天区以外的文件默认会让窗口打开该文件，这里统一吞掉
+    const block = (e: DragEvent): void => e.preventDefault()
+    document.addEventListener('dragover', block)
+    document.addEventListener('drop', block)
+    return () => {
+      document.removeEventListener('dragover', block)
+      document.removeEventListener('drop', block)
+    }
+  }, [])
 
   const pickAndOpen = async (): Promise<void> => {
     const raw = await api.image.pick()

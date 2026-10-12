@@ -41,10 +41,8 @@ export function createWindow(): BrowserWindow {
     if (url.startsWith('https://')) void shell.openExternal(url)
     return { action: 'deny' }
   })
-  win.webContents.on('will-navigate', (event, url) => {
-    const allowed = is.dev ? process.env['ELECTRON_RENDERER_URL'] ?? '' : 'file://'
-    if (!url.startsWith(allowed)) event.preventDefault()
-  })
+  // 单页应用不需要任何导航；拖入文件等会触发 file:// 导航，一律拦下
+  win.webContents.on('will-navigate', (event) => event.preventDefault())
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     void win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
