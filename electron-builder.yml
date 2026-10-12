@@ -12,6 +12,9 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!.superpowers/**'
+  - '!.worktrees/**'
+  - '!SpeakMate_Electron_AI_.md'
 asarUnpack:
   - resources/**
   - node_modules/@anthropic-ai/claude-agent-sdk/**

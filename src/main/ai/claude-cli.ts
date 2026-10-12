@@ -28,6 +28,8 @@ export interface ClaudeCliProviderOptions {
   queryFn?: QueryFn
   deleteSessionFn?: (id: string, o: { dir: string }) => Promise<void>
   env?: NodeJS.ProcessEnv
+  /** 打包后 SDK 解析到的是 app.asar 内路径，spawn 会 ENOTDIR，需显式指向 app.asar.unpacked。 */
+  cliPath?: string
 }
 
 const TUTOR_JSON_SCHEMA = toJsonSchema(TutorResponseSchema)
@@ -96,6 +98,7 @@ export class ClaudeCliProvider implements AIProvider {
       env: cleanEnv(this.opts.env ?? process.env),
       abortController,
       maxTurns: 3,
+      ...(this.opts.cliPath ? { pathToClaudeCodeExecutable: this.opts.cliPath } : {}),
       ...(model ? { model } : {})
     }
   }

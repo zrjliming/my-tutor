@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { readFileSync, statSync } from 'node:fs'
-import { basename, extname } from 'node:path'
+import { basename, extname, sep } from 'node:path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/ipc'
 import type { ChatIpcEvent, ImageInput } from '@shared/types'
@@ -13,6 +13,12 @@ import { ClaudeCliProvider } from './ai/claude-cli'
 import { ChatService } from './chat/service'
 import { LessonService } from './lessons/service'
 import { registerIpc } from './ipc/register'
+
+function packagedCliPath(): string | undefined {
+  if (!app.isPackaged) return undefined
+  const pkg = `@anthropic-ai/claude-agent-sdk-${process.platform}-${process.arch}/claude`
+  return require.resolve(pkg).replace(`app.asar${sep}`, `app.asar.unpacked${sep}`)
+}
 
 const MIME_BY_EXT: Record<string, ImageInput['mime']> = {
   '.jpg': 'image/jpeg',
@@ -56,7 +62,7 @@ app.whenReady().then(() => {
             notesZh: '问候与介绍。'
           }
         })
-      : new ClaudeCliProvider({ sessionsDir: paths.sessionsDir })
+      : new ClaudeCliProvider({ sessionsDir: paths.sessionsDir, cliPath: packagedCliPath() })
   const send = (event: ChatIpcEvent): void => {
     for (const w of BrowserWindow.getAllWindows()) w.webContents.send(IPC.chatEvent, event)
   }
