@@ -25,15 +25,15 @@
 
 ### 1.2 与原需求文档的差异（本次决策）
 
-| 项目 | 原文档 | 本 spec |
-|---|---|---|
-| AI 接入 | Claude 官方 API + API Key + Keychain | 通过 Agent SDK 驱动本机已登录的 Claude Code，无 API Key，无 Keychain |
-| 本地 ASR | sherpa-onnx / whisper.cpp 待评估 | whisper.cpp 命令行工具，子进程调用 |
-| 学习模式 | 6 个 | 5 个：自由聊天、课文问答、角色扮演、场景任务、针对性练习；跟读与复述延后 |
-| 对话上下文 | 应用自己做"最近 N 轮 + 摘要" | 交给 Claude Code 会话（resume），应用不拼历史 |
-| 图片消息 | 可拖进聊天窗口 | 聊天里不出现图片消息，所有图片统一走"识别为学习内容" |
-| 新增 | 无 | 学习画像 + 针对性练习 + 会话小结 + 文本粘贴成课程 |
-| 数据库时机 | 阶段 3 | 基础表提前到阶段 1 |
+| 项目       | 原文档                               | 本 spec                                                                  |
+| ---------- | ------------------------------------ | ------------------------------------------------------------------------ |
+| AI 接入    | Claude 官方 API + API Key + Keychain | 通过 Agent SDK 驱动本机已登录的 Claude Code，无 API Key，无 Keychain     |
+| 本地 ASR   | sherpa-onnx / whisper.cpp 待评估     | whisper.cpp 命令行工具，子进程调用                                       |
+| 学习模式   | 6 个                                 | 5 个：自由聊天、课文问答、角色扮演、场景任务、针对性练习；跟读与复述延后 |
+| 对话上下文 | 应用自己做"最近 N 轮 + 摘要"         | 交给 Claude Code 会话（resume），应用不拼历史                            |
+| 图片消息   | 可拖进聊天窗口                       | 聊天里不出现图片消息，所有图片统一走"识别为学习内容"                     |
+| 新增       | 无                                   | 学习画像 + 针对性练习 + 会话小结 + 文本粘贴成课程                        |
+| 数据库时机 | 阶段 3                               | 基础表提前到阶段 1                                                       |
 
 ### 1.3 非目标（第一版不做）
 
@@ -57,6 +57,7 @@
 - `say` 可用，英语音色有 Samantha（美）、Daniel（英）。
 - Agent SDK 0.3.296（内置 CLI 2.1.296，与本机一致）在 Node 下实测：`tools: []` + `permissionMode: dontAsk` + `outputFormat` 正常；**模型先流式输出正文（9 个 text_delta，首个约 2.6 s），再调用 StructuredOutput**，`structured_output` 在 result 里，`result` 字段是同一份 JSON 字符串；`sessionId` 自定 UUID + `resume` 续接正常（约 3 s，命中缓存 1272 token）；base64 PNG 图片块经流式输入送达并被正确识读；init 消息里订阅登录的 `apiKeySource` 为 `none`，不能用它判断是否登录。SDK 提供 `deleteSession(id, { dir })`，删会话用它。
 - `node:sqlite`（`DatabaseSync`）在 Electron 39 的 Node 22 里可用，不需要 better-sqlite3。
+- 2026-10-12 阶段 1 联调（Electron 主进程 + Agent SDK）：检测连接 4948 ms；开场白首字 2.2 s；纠错卡正常；停止后 resume 正常；课文图片识别正常；重启后数据保留。问题：① 检测连接 4948 ms（模型 claude-fable-5-1，只测一次），高于预期的 1～3 s；② 长回复的 text_delta 集中在末尾到达（伦敦长故事首个 delta 在 20.0 s，0.13 s 内到齐 84 个后即 done），长回复基本看不到流式；③ 点停止后约 2 s 内仍有 delta 到达并写进消息；④ 停止恰好落在完成瞬间时，done 之后又到了 aborted，ChatService 把已完成的消息改写成 stopped 并清空 structured（`src/main/chat/service.ts` error 分支），当时界面显示完成 + 生词，重启后变成「已停止」且没有生词。
 
 ## 3. 架构
 
@@ -102,41 +103,46 @@ my-tutor/
 
 ```ts
 interface AIProvider {
-  chat(req: ChatRequest): AsyncIterable<ChatEvent>;        // 有会话，流式
-  analyze<T>(req: AnalyzeRequest<T>): Promise<T>;          // 一次性、不留会话、结构化
+  chat(req: ChatRequest): AsyncIterable<ChatEvent> // 有会话，流式
+  analyze<T>(req: AnalyzeRequest<T>): Promise<T> // 一次性、不留会话、结构化
 }
 interface ChatRequest {
-  conversationId: string;      // 即 Claude 会话 UUID
-  firstTurn: boolean;          // true 时带 systemPrompt + sessionId；false 时 resume
-  systemPrompt?: string;
-  text: string;
-  signal: AbortSignal;
+  conversationId: string // 即 Claude 会话 UUID
+  firstTurn: boolean // true 时带 systemPrompt + sessionId；false 时 resume
+  systemPrompt?: string
+  text: string
+  signal: AbortSignal
 }
 type ChatEvent =
-  | { type: "text_delta"; text: string }
-  | { type: "done"; structured?: TutorResponse; rawText: string }
-  | { type: "retrying"; attempt: number }
-  | { type: "error"; kind: AIErrorKind; message: string };
-type AIErrorKind = "not_logged_in" | "binary_missing" | "network" | "rate_limited" | "aborted" | "unknown";
+  | { type: 'text_delta'; text: string }
+  | { type: 'done'; structured?: TutorResponse; rawText: string }
+  | { type: 'retrying'; attempt: number }
+  | { type: 'error'; kind: AIErrorKind; message: string }
+type AIErrorKind =
+  'not_logged_in' | 'binary_missing' | 'network' | 'rate_limited' | 'aborted' | 'unknown'
 
 interface AnalyzeRequest<T> {
-  systemPrompt: string;
-  text: string;
-  images?: Array<{ mime: string; base64: string }>;
-  schema: ZodSchema<T>;
-  signal?: AbortSignal;
+  systemPrompt: string
+  text: string
+  images?: Array<{ mime: string; base64: string }>
+  schema: ZodSchema<T>
+  signal?: AbortSignal
 }
 
 interface SpeechRecognitionService {
-  isReady(): Promise<{ binary: boolean; model: boolean }>;
-  transcribe(wav: Buffer, signal: AbortSignal): Promise<ASRResult>;
+  isReady(): Promise<{ binary: boolean; model: boolean }>
+  transcribe(wav: Buffer, signal: AbortSignal): Promise<ASRResult>
 }
-interface ASRResult { text: string; confidence: number; segments: Array<{ text: string; startMs: number; endMs: number }> }
+interface ASRResult {
+  text: string
+  confidence: number
+  segments: Array<{ text: string; startMs: number; endMs: number }>
+}
 
 interface TTSService {
-  speak(text: string, opts: { voice: string; rate: number }): Promise<void>;  // resolve 于播放结束或被 stop
-  stop(): Promise<void>;
-  listVoices(): Promise<Array<{ id: string; label: string; lang: string }>>;
+  speak(text: string, opts: { voice: string; rate: number }): Promise<void> // resolve 于播放结束或被 stop
+  stop(): Promise<void>
+  listVoices(): Promise<Array<{ id: string; label: string; lang: string }>>
 }
 ```
 
@@ -233,17 +239,17 @@ TutorResponse = {
 
 表：
 
-| 表 | 字段要点 |
-|---|---|
-| `conversations` | id(uuid, 同 Claude 会话)、title、mode、lesson_id?、scenario?、turn_count、created_at、updated_at、ended_at? |
-| `messages` | id、conversation_id、role(user/assistant)、content、structured_json?、status(sent/streaming/done/error)、created_at |
-| `lessons` | id、title、body、source(image/text)、notes_zh、created_at |
-| `lesson_assets` | id、lesson_id、path(`userData/lessons/<id>/<n>.jpg`)、mime、size |
-| `mistakes` | id、conversation_id?、message_id?、original、improved、explanation_zh、category、review_count、next_review_at、status(pending/mastered)、created_at |
-| `vocabulary` | id、word(unique)、meaning_zh、example、source(conversation/lesson)、source_id?、seen_count、familiarity(0-5)、next_review_at、created_at |
-| `practice_sessions` | conversation_id(pk)、mode、started_at、ended_at、turns、summary_json? |
-| `learner_profile` | id=1、level、weaknesses_json、progress_json、suggestions_json、summary_zh、updated_at |
-| `settings` | key、value |
+| 表                  | 字段要点                                                                                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `conversations`     | id(uuid, 同 Claude 会话)、title、mode、lesson_id?、scenario?、turn_count、created_at、updated_at、ended_at?                                         |
+| `messages`          | id、conversation_id、role(user/assistant)、content、structured_json?、status(sent/streaming/done/error)、created_at                                 |
+| `lessons`           | id、title、body、source(image/text)、notes_zh、created_at                                                                                           |
+| `lesson_assets`     | id、lesson_id、path(`userData/lessons/<id>/<n>.jpg`)、mime、size                                                                                    |
+| `mistakes`          | id、conversation_id?、message_id?、original、improved、explanation_zh、category、review_count、next_review_at、status(pending/mastered)、created_at |
+| `vocabulary`        | id、word(unique)、meaning_zh、example、source(conversation/lesson)、source_id?、seen_count、familiarity(0-5)、next_review_at、created_at            |
+| `practice_sessions` | conversation_id(pk)、mode、started_at、ended_at、turns、summary_json?                                                                               |
+| `learner_profile`   | id=1、level、weaknesses_json、progress_json、suggestions_json、summary_zh、updated_at                                                               |
+| `settings`          | key、value                                                                                                                                          |
 
 规则：
 
@@ -257,13 +263,13 @@ TutorResponse = {
 
 ### 7.1 五种模式
 
-| 模式 | 提示词 | 会话级上下文 |
-|---|---|---|
-| 自由聊天 | free-chat.md | 无 |
-| 课文问答 | lesson-qa.md | 课程正文 + 中文注释 |
-| 角色扮演 | role-play.md | 预设场景（机场、出租车、餐厅、购物、看病挂号、工作会议）中的角色设定 |
-| 场景任务 | scenario-task.md | 预设场景 + 一个明确目标；AI 在判断完成时置 `taskCompleted` |
-| 针对性练习 | targeted-practice.md | 画像中 2～3 个薄弱点 + 到期复习的 ≤ 5 条错句 |
+| 模式       | 提示词               | 会话级上下文                                                         |
+| ---------- | -------------------- | -------------------------------------------------------------------- |
+| 自由聊天   | free-chat.md         | 无                                                                   |
+| 课文问答   | lesson-qa.md         | 课程正文 + 中文注释                                                  |
+| 角色扮演   | role-play.md         | 预设场景（机场、出租车、餐厅、购物、看病挂号、工作会议）中的角色设定 |
+| 场景任务   | scenario-task.md     | 预设场景 + 一个明确目标；AI 在判断完成时置 `taskCompleted`           |
+| 针对性练习 | targeted-practice.md | 画像中 2～3 个薄弱点 + 到期复习的 ≤ 5 条错句                         |
 
 `base-tutor.md` 固定规则：按难度控制词汇与句长；每次只问一个主要问题；优先纠正影响理解的错误；给自然表达 + 简短中文解释；每轮 ≤ 3 个生词；区分 ASR 不确定与真实错误；不把每轮都变成语法课；先写 reply 再填结构化字段。
 
@@ -319,18 +325,18 @@ idle → recording → transcribing → awaiting_confirmation → sending → st
 
 ## 9. 错误处理总览
 
-| 情况 | 行为 |
-|---|---|
+| 情况                       | 行为                                                               |
+| -------------------------- | ------------------------------------------------------------------ |
 | Claude 未登录 / 二进制缺失 | 发送失败，消息标 error，提示去设置页检测，给出 `claude login` 指引 |
-| 限流 / 网络 | 显示"重试中（第 n 次）"，SDK 重试耗尽后标 error，可重发 |
-| 用户停止生成 | abort，已收到的文本保留为 assistant 消息，不写错句 / 生词 |
-| 结构化缺失 / 校验失败 | 纯文本展示，不写错句 / 生词 |
-| 麦克风被拒 | 引导打开系统设置 |
-| 空录音 / 静音 | 提示，不调识别 |
-| whisper 二进制或模型缺失 | 麦克风按钮禁用并提示去设置页 |
-| 识别失败 / 超时 | 回 idle，提示可重录或打字 |
-| TTS 失败 | 提示，聊天不受影响 |
-| 数据库迁移失败 | 启动时弹窗并退出，不覆盖数据 |
+| 限流 / 网络                | 显示"重试中（第 n 次）"，SDK 重试耗尽后标 error，可重发            |
+| 用户停止生成               | abort，已收到的文本保留为 assistant 消息，不写错句 / 生词          |
+| 结构化缺失 / 校验失败      | 纯文本展示，不写错句 / 生词                                        |
+| 麦克风被拒                 | 引导打开系统设置                                                   |
+| 空录音 / 静音              | 提示，不调识别                                                     |
+| whisper 二进制或模型缺失   | 麦克风按钮禁用并提示去设置页                                       |
+| 识别失败 / 超时            | 回 idle，提示可重录或打字                                          |
+| TTS 失败                   | 提示，聊天不受影响                                                 |
+| 数据库迁移失败             | 启动时弹窗并退出，不覆盖数据                                       |
 
 ## 10. 测试
 
@@ -355,10 +361,10 @@ UI 开发与 IPC 联调用 Fake 实现。真机手动清单（录音权限、口
 
 ## 12. 阶段计划
 
-| 阶段 | 内容 | 验收 |
-|---|---|---|
-| 0 技术验证 | 建工程；`brew install whisper.cpp` + 下载 small.en + 一段 wav 跑通；Electron 主进程经 SDK 调 Claude：Finder 启动复用登录（其余三项已在 Node 下实测，见第 2 节）；`say` 跑通；`node:sqlite` 在 Electron 主进程可用 | 结论写回本 spec 第 2 节 |
-| 1 文字聊天 + 课程 | 基础表（conversations / messages / lessons / lesson_assets / settings）、Provider、聊天 UI、自由聊天与课文问答、图片 / 文本识别成课程、提示词 v1 | 可连续聊天；上传课文图片，确认文本后围绕课文提问；重启后会话与课程仍在 |
-| 2 语音闭环 | 录音、whisper、say、状态机、权限引导、模型下载 | 说英语 → 转写 → 修改 → AI 回答 → 朗读 → 停止，全程状态正确 |
-| 3 学习记录与画像 | mistakes / vocabulary / practice_sessions / learner_profile、错句本、生词本、复习节奏、会话小结、学习分析页、针对性练习、角色扮演与场景任务 | 几次练习后分析页有画像；针对性练习会引出薄弱点；错句可复习与标记 |
-| 4 稳定与打包 | electron-builder、asar 解包、权限描述、各类失败降级、手动清单 | dmg 在本机干净安装可启动，关键功能可用，失败可恢复 |
+| 阶段              | 内容                                                                                                                                                                                                              | 验收                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 0 技术验证        | 建工程；`brew install whisper.cpp` + 下载 small.en + 一段 wav 跑通；Electron 主进程经 SDK 调 Claude：Finder 启动复用登录（其余三项已在 Node 下实测，见第 2 节）；`say` 跑通；`node:sqlite` 在 Electron 主进程可用 | 结论写回本 spec 第 2 节                                                |
+| 1 文字聊天 + 课程 | 基础表（conversations / messages / lessons / lesson_assets / settings）、Provider、聊天 UI、自由聊天与课文问答、图片 / 文本识别成课程、提示词 v1                                                                  | 可连续聊天；上传课文图片，确认文本后围绕课文提问；重启后会话与课程仍在 |
+| 2 语音闭环        | 录音、whisper、say、状态机、权限引导、模型下载                                                                                                                                                                    | 说英语 → 转写 → 修改 → AI 回答 → 朗读 → 停止，全程状态正确             |
+| 3 学习记录与画像  | mistakes / vocabulary / practice_sessions / learner_profile、错句本、生词本、复习节奏、会话小结、学习分析页、针对性练习、角色扮演与场景任务                                                                       | 几次练习后分析页有画像；针对性练习会引出薄弱点；错句可复习与标记       |
+| 4 稳定与打包      | electron-builder、asar 解包、权限描述、各类失败降级、手动清单                                                                                                                                                     | dmg 在本机干净安装可启动，关键功能可用，失败可恢复                     |

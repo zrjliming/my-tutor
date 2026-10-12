@@ -7,6 +7,7 @@ import { ChatPage } from './components/ChatPage'
 import { LessonsPage } from './components/LessonsPage'
 import { NewConversationDialog } from './components/NewConversationDialog'
 import { LessonDialog } from './components/LessonDialog'
+import { SettingsPage } from './components/SettingsPage'
 
 export default function App(): React.JSX.Element {
   const [page, setPage] = useState<Page>('chat')
@@ -42,7 +43,7 @@ export default function App(): React.JSX.Element {
               }}
             />
           )}
-          {page === 'settings' && <div className="p-6 text-fg-2">设置页在 Task 13 实现</div>}
+          {page === 'settings' && <SettingsPage />}
         </main>
       </div>
       <NewConversationDialog
