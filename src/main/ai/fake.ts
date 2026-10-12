@@ -6,6 +6,7 @@ export interface FakeAIOptions {
   analyzeResult?: unknown
   failWith?: AIErrorKind
   deltaDelayMs?: number
+  omitStructured?: boolean
 }
 
 const DEFAULT_REPLY: TutorResponse = {
@@ -48,7 +49,11 @@ export class FakeAIProvider implements AIProvider {
       }
       yield { type: 'text_delta', text: (i === 0 ? '' : ' ') + words[i] }
     }
-    yield { type: 'done', structured: reply, rawText: reply.reply }
+    yield {
+      type: 'done',
+      structured: this.opts.omitStructured ? undefined : reply,
+      rawText: reply.reply
+    }
   }
 
   async analyze<T>(req: AnalyzeRequest<T>): Promise<T> {
