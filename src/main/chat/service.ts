@@ -207,6 +207,20 @@ export class ChatService {
         emit({ type: 'error', kind: 'unknown', message: String((e as Error)?.message ?? e) })
       }
     }
+    if (!terminal) {
+      // 流结束却既无 done 也无 error：不能让消息停在 streaming
+      const aborted = ac.signal.aborted
+      updateMessage(db, assistantMessageId, {
+        content,
+        structured: null,
+        status: aborted ? 'stopped' : 'error'
+      })
+      emit({
+        type: 'error',
+        kind: aborted ? 'aborted' : 'unknown',
+        message: aborted ? '已停止' : '回复意外中断，没有收到结果'
+      })
+    }
     // 首轮没成功时 CLI 可能已写下会话文件，不删的话下次带同一 sessionId 会被拒（already in use）
     if (firstTurn && !completed) await ai.deleteSession(conversationId)
   }

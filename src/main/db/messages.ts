@@ -52,6 +52,11 @@ export function updateMessage(
   )
 }
 
+/** 启动时调用：上次退出/崩溃时仍在 streaming 的回复不会再有结果，标为已停止。 */
+export function markOrphanedStreamingAsStopped(db: Db): void {
+  db.prepare(`UPDATE messages SET status = 'stopped' WHERE status = 'streaming'`).run()
+}
+
 export function listMessages(db: Db, conversationId: string): Message[] {
   return (
     db

@@ -8,7 +8,12 @@ import {
   markSessionStarted,
   bumpTurn
 } from './conversations'
-import { insertMessage, updateMessage, listMessages } from './messages'
+import {
+  insertMessage,
+  updateMessage,
+  listMessages,
+  markOrphanedStreamingAsStopped
+} from './messages'
 import { insertLesson, listLessons, getLesson, deleteLesson } from './lessons'
 import { getSettings, patchSettings } from './settings'
 import type { Conversation, Lesson, Message } from '@shared/types'
@@ -105,6 +110,16 @@ describe('messages', () => {
       status: 'done',
       structured: { reply: 'Hello!' }
     })
+  })
+  it('marks streaming messages left over from a previous run as stopped', () => {
+    insertConversation(db, conv('a'))
+    insertMessage(db, msg('m1', 'a'))
+    insertMessage(db, msg('m2', 'a', { role: 'assistant', content: 'Hal', status: 'streaming' }))
+    markOrphanedStreamingAsStopped(db)
+    expect(listMessages(db, 'a').map((m) => [m.id, m.status, m.content])).toEqual([
+      ['m1', 'done', 'hi'],
+      ['m2', 'stopped', 'Hal']
+    ])
   })
 })
 

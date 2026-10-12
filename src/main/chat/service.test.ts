@@ -160,6 +160,18 @@ describe('send', () => {
     await svc.whenIdle(conversation.id)
     expect(ai.calls[1]).toMatchObject({ firstTurn: true })
   })
+  it('a stream that ends without done or error is recorded and reported as an error', async () => {
+    const svc = mk(new FakeAIProvider({ events: [{ type: 'text_delta', text: 'Hal' }] }))
+    const { conversation, assistantMessageId } = await svc.createConversation({ mode: 'free' })
+    await svc.whenIdle(conversation.id)
+    const m = listMessages(db, conversation.id).find((x) => x.id === assistantMessageId)!
+    expect(m).toMatchObject({ status: 'error', content: 'Hal' })
+    expect(events.at(-1)).toMatchObject({
+      type: 'error',
+      kind: 'unknown',
+      messageId: assistantMessageId
+    })
+  })
   it('stores plain text and null structured when structured output is missing', async () => {
     const svc = mk(new FakeAIProvider({ omitStructured: true, reply: { reply: 'Just text' } }))
     const { conversation, assistantMessageId } = await svc.createConversation({ mode: 'free' })

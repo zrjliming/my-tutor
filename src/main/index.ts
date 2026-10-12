@@ -7,6 +7,7 @@ import type { ChatIpcEvent, ImageInput } from '@shared/types'
 import { createWindow, installCsp } from './window'
 import { resolvePaths } from './paths'
 import { openDatabase } from './db/index'
+import { markOrphanedStreamingAsStopped } from './db/messages'
 import type { AIProvider } from './ai/types'
 import { FakeAIProvider } from './ai/fake'
 import { ClaudeCliProvider } from './ai/claude-cli'
@@ -51,6 +52,7 @@ app.whenReady().then(() => {
 
   const paths = resolvePaths(app.getPath('userData'))
   const db = openDatabase(paths.db)
+  markOrphanedStreamingAsStopped(db)
   const ai: AIProvider =
     process.env.SPEAKMATE_FAKE_AI === '1'
       ? new FakeAIProvider({
