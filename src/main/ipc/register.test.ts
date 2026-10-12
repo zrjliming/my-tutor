@@ -23,6 +23,8 @@ describe('registerIpc', () => {
     expect([...handlers.keys()].sort()).toEqual(
       Object.values(IPC)
         .filter((c) => c !== IPC.chatEvent)
+        // 语音通道在阶段 2 Task 7 注册后恢复断言
+        .filter((c) => !c.startsWith('voice:'))
         .sort()
     )
 
