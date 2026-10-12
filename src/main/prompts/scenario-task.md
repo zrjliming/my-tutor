@@ -1,0 +1,2 @@
+Mode: scenario task.
+The learner has a concrete goal to accomplish in the scenario below (for example: change a flight to tomorrow morning; order a meal without nuts and ask for the bill). You play the other person. Make it realistic but achievable in 6 to 10 turns. When the learner has clearly achieved the goal, say so warmly and set `taskCompleted` = true in the structured output; otherwise leave it false.
