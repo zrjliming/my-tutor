@@ -50,11 +50,13 @@
 - 裸调 `claude -p` 每次约 50,000 输入 token（带 Claude Code 默认系统提示、工具说明、全局 CLAUDE.md）；改为自定义系统提示 + 不加载设置 + 禁用工具后约 600 token。**所有调用必须用后一种配置。**
 - `--json-schema` / SDK `outputFormat` 结构化输出可用，结果在 `structured_output`；用 TutorResponse schema 实测纠错和中文解释正常。
 - `--session-id <uuid>` 可自定会话 id，`--resume` 跨进程可续；系统提示在会话第一轮固化。
-- 图片输入：SDK 流式输入模式（prompt 为 AsyncIterable）支持 base64 image 内容块；字符串 prompt 不支持图片。
+- 图片输入：SDK 流式输入模式（prompt 为 AsyncIterable）支持 base64 image 内容块，已实测；字符串 prompt 不支持图片。
 - 取消：SDK `abortController`。
 - 政策：官方禁止的是向第三方用户提供 claude.ai 登录或代用户走订阅额度；个人驱动未修改的官方二进制不在列。Fable 模型可能额外计费，不默认选。
 - whisper.cpp 未安装，Homebrew 有 1.9.5（formula 名 `whisper.cpp`，命令 `whisper-cli`）。
 - `say` 可用，英语音色有 Samantha（美）、Daniel（英）。
+- Agent SDK 0.3.296（内置 CLI 2.1.296，与本机一致）在 Node 下实测：`tools: []` + `permissionMode: dontAsk` + `outputFormat` 正常；**模型先流式输出正文（9 个 text_delta，首个约 2.6 s），再调用 StructuredOutput**，`structured_output` 在 result 里，`result` 字段是同一份 JSON 字符串；`sessionId` 自定 UUID + `resume` 续接正常（约 3 s，命中缓存 1272 token）；base64 PNG 图片块经流式输入送达并被正确识读；init 消息里订阅登录的 `apiKeySource` 为 `none`，不能用它判断是否登录。SDK 提供 `deleteSession(id, { dir })`，删会话用它。
+- `node:sqlite`（`DatabaseSync`）在 Electron 39 的 Node 22 里可用，不需要 better-sqlite3。
 
 ## 3. 架构
 
@@ -63,8 +65,9 @@
 - `electron-vite`（React + TypeScript 模板），npm。
 - Tailwind CSS，不用 shadcn。
 - zod：IPC 入参校验 + AI 结构化输出校验，schema 在 `src/shared` 共用。
-- better-sqlite3（原生模块，安装后 `electron-builder install-app-deps` 重编译）。
-- `@anthropic-ai/claude-agent-sdk`（自带 CLI 二进制）。
+- 数据库用 Node 内置的 `node:sqlite`（`DatabaseSync`），不用 better-sqlite3：Electron 39 自带的 Node 22 已包含该模块（已实测），省掉原生模块重编译和 asar 解包。
+- `@anthropic-ai/claude-agent-sdk` 固定 0.3.296（自带 CLI 二进制，平台包 `@anthropic-ai/claude-agent-sdk-darwin-arm64`）。
+- zod 4：`z.toJSONSchema(schema, { target: "draft-7" })` 直接产出结构化输出用的 schema。
 - Vitest。打包 electron-builder。
 
 目录：
@@ -147,7 +150,7 @@ UI 和学习逻辑只依赖接口；每个接口有一个 Fake 实现供测试�
 
 - `systemPrompt`: 自定义字符串（不用 preset）。
 - `settingSources: []`。
-- `tools: []` 且 `disallowedTools: ["*"]`；`permissionMode: "dontAsk"`。
+- `tools: []`；`permissionMode: "dontAsk"`。**不要传 `disallowedTools: ["*"]`**：它会把结构化输出用的内部 StructuredOutput 工具一起禁掉，导致 `error_max_turns`（已实测）。
 - `outputFormat: { type: "json_schema", schema }`（schema 由 zod 转 draft-07）。
 - `includePartialMessages: true`。
 - `abortController`。
@@ -162,7 +165,7 @@ UI 和学习逻辑只依赖接口；每个接口有一个 Fake 实现供测试�
 - 新建会话时生成 UUID，作为 `conversations.id` 和 Claude `sessionId`。
 - 第一轮：`sessionId` + 完整系统提示。后续：`resume: id`，不传系统提示。
 - 系统提示 = `base-tutor.md` + 模式提示词 + 学习难度 + 学习者画像摘要（若有）+ 模式所需上下文（课文正文 / 场景 / 针对性练习选材）。因系统提示在第一轮固化，模式与课程绑定在会话上，换模式即新建会话。
-- 删除会话时删除 `~/.claude/projects/<encoded cwd>/<id>.jsonl`（best-effort，失败不报错）。
+- 删除会话时调用 SDK 的 `deleteSession(id, { dir: cwd })`（best-effort，失败不报错）。
 
 ### 4.3 结构化输出
 
@@ -192,7 +195,7 @@ TutorResponse = {
 
 ### 4.5 错误与检测
 
-- 错误分类见 `AIErrorKind`。判断依据：init 消息的 `apiKeySource` 与结果 `errors[]` 文本（未登录）、SDK 抛出的二进制缺失错误、`api_retry` 事件（限流 / 网络，UI 显示"重试中"）、`AbortError`。
+- 错误分类见 `AIErrorKind`。判断依据：结果 `subtype` 非 success 时 `errors[]` 文本含 login / auth（未登录）、SDK 抛出的二进制缺失错误、`system` 消息 `subtype: api_retry`（限流 / 网络，UI 显示"重试中"）、`AbortError`。
 - 设置页"检测 Claude 连接"：跑一次最小 `analyze`（约 600 token），显示登录方式、模型、耗时。
 - 启动时只检查 SDK 二进制存在，不发请求。
 
@@ -225,7 +228,7 @@ TutorResponse = {
 
 ## 6. 数据层
 
-- better-sqlite3，`userData/speakmate.db`，WAL；`PRAGMA user_version` 编号迁移，`migrations/NNN.sql` 只追加。
+- `node:sqlite` 的 `DatabaseSync`，`userData/speakmate.db`，WAL；`PRAGMA user_version` 编号迁移，`migrations/NNN.sql` 只追加。
 - 查询同步，直接在主进程执行。
 
 表：
@@ -346,7 +349,7 @@ UI 开发与 IPC 联调用 Fake 实现。真机手动清单（录音权限、口
 ## 11. 打包
 
 - electron-builder，`mac` `arm64` `dmg`，不公证。
-- `asarUnpack`: `@anthropic-ai/claude-agent-sdk*`、`better-sqlite3`。
+- `asarUnpack`: `@anthropic-ai/claude-agent-sdk*`（含 `claude-agent-sdk-darwin-arm64` 里的二进制）。
 - `extendInfo.NSMicrophoneUsageDescription`；hardened runtime entitlements 含 `com.apple.security.device.audio-input`。
 - 子进程 env 显式传入并补全 PATH（Finder 启动时 PATH 极简，需包含 `/opt/homebrew/bin` 以找到 `whisper-cli`）。
 
@@ -354,7 +357,7 @@ UI 开发与 IPC 联调用 Fake 实现。真机手动清单（录音权限、口
 
 | 阶段 | 内容 | 验收 |
 |---|---|---|
-| 0 技术验证 | 建工程；`brew install whisper.cpp` + 下载 small.en + 真录音跑通；Electron 主进程经 SDK 调 Claude：Finder 启动复用登录、正文流式 + 结构化在尾部、图片块可达；`say` 跑通；better-sqlite3 在 Electron 中编译通过 | 结论写回本 spec 第 2 节 |
+| 0 技术验证 | 建工程；`brew install whisper.cpp` + 下载 small.en + 一段 wav 跑通；Electron 主进程经 SDK 调 Claude：Finder 启动复用登录（其余三项已在 Node 下实测，见第 2 节）；`say` 跑通；`node:sqlite` 在 Electron 主进程可用 | 结论写回本 spec 第 2 节 |
 | 1 文字聊天 + 课程 | 基础表（conversations / messages / lessons / lesson_assets / settings）、Provider、聊天 UI、自由聊天与课文问答、图片 / 文本识别成课程、提示词 v1 | 可连续聊天；上传课文图片，确认文本后围绕课文提问；重启后会话与课程仍在 |
 | 2 语音闭环 | 录音、whisper、say、状态机、权限引导、模型下载 | 说英语 → 转写 → 修改 → AI 回答 → 朗读 → 停止，全程状态正确 |
 | 3 学习记录与画像 | mistakes / vocabulary / practice_sessions / learner_profile、错句本、生词本、复习节奏、会话小结、学习分析页、针对性练习、角色扮演与场景任务 | 几次练习后分析页有画像；针对性练习会引出薄弱点；错句可复习与标记 |
