@@ -1,4 +1,4 @@
-# speakmate-tmp
+# my-tutor
 
 An Electron application with React and TypeScript
 

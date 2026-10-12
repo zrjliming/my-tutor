@@ -50,7 +50,7 @@ async function pickImages(): Promise<ImageInput[]> {
 let chat: ChatService | undefined
 
 app.whenReady().then(() => {
-  electronApp.setAppUserModelId('com.speakmate.app')
+  electronApp.setAppUserModelId('com.mytutor.app')
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
   installCsp()
 
@@ -66,7 +66,7 @@ app.whenReady().then(() => {
     return
   }
   const ai: AIProvider =
-    process.env.SPEAKMATE_FAKE_AI === '1'
+    process.env.MY_TUTOR_FAKE_AI === '1'
       ? new FakeAIProvider({
           deltaDelayMs: 40,
           analyzeResult: {

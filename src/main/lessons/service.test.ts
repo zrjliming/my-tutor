@@ -17,7 +17,7 @@ const extraction = {
 
 beforeEach(() => {
   db = openDatabase(':memory:')
-  dir = mkdtempSync(join(tmpdir(), 'speakmate-lessons-'))
+  dir = mkdtempSync(join(tmpdir(), 'my-tutor-lessons-'))
 })
 afterEach(() => rmSync(dir, { recursive: true, force: true }))
 

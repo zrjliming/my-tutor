@@ -143,7 +143,7 @@ export class ClaudeCliProvider implements AIProvider {
             const resultText = typeof m.result === 'string' ? m.result : ''
             let rawText = text || resultText
             if (!parsed.success) {
-              console.warn('[speakmate] structured output missing or invalid, degrading to text')
+              console.warn('[my-tutor] structured output missing or invalid, degrading to text')
               if (!text) rawText = replyFromJson(resultText) ?? rawText
             }
             yield {

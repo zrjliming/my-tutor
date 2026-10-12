@@ -119,7 +119,7 @@ export function SettingsPage(): React.JSX.Element {
           <p className="text-[12.5px] text-fg-2 leading-relaxed m-0">
             你输入的文字、确认后的课文文本会发送给
             Claude。课文图片只在你点击“识别”时发送一次，之后只使用文本。会话、课程只保存在本机数据库（应用数据目录下的
-            speakmate.db）。
+            my-tutor.db）。
           </p>
         </section>
       </div>

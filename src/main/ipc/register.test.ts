@@ -18,7 +18,7 @@ describe('registerIpc', () => {
     const db = openDatabase(':memory:')
     const ai = new FakeAIProvider()
     const chat = new ChatService({ db, ai, send: () => {} })
-    const lessons = new LessonService({ db, ai, lessonsDir: '/tmp/speakmate-test-lessons' })
+    const lessons = new LessonService({ db, ai, lessonsDir: '/tmp/my-tutor-test-lessons' })
     registerIpc(ipc, { chat, lessons, ai, db }, async () => [])
     expect([...handlers.keys()].sort()).toEqual(
       Object.values(IPC)

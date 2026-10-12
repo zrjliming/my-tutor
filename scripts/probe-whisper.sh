@@ -2,7 +2,7 @@
 # 阶段 0：验证 whisper.cpp 命令行、模型下载、say 生成的 wav 能被识别。
 set -euo pipefail
 
-MODELS_DIR="$HOME/Library/Application Support/speakmate/models"
+MODELS_DIR="$HOME/Library/Application Support/my-tutor/models"
 MODEL="$MODELS_DIR/ggml-small.en.bin"
 WORK="$(mktemp -d)"
 

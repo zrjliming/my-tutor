@@ -13,7 +13,7 @@ export interface AppPaths {
 export function resolvePaths(userData: string): AppPaths {
   const paths: AppPaths = {
     userData,
-    db: join(userData, 'speakmate.db'),
+    db: join(userData, 'my-tutor.db'),
     lessonsDir: join(userData, 'lessons'),
     sessionsDir: join(userData, 'claude-sessions'),
     tmpDir: join(userData, 'tmp'),
