@@ -217,7 +217,7 @@ TutorResponse = {
 - 上限 60 秒，到时自动结束。
 - 发送前计算 RMS，整段近静音直接提示"没听到声音"，不调识别。
 - 首次录音前主进程 `systemPreferences.askForMediaAccess("microphone")`；被拒时提供按钮打开 `x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone`。
-- 设备拔出 / 流中断：捕获 track `ended`，回 idle 并提示。
+- 设备拔出 / 流中断：捕获 track `ended`，提示麦克风已断开，并对已录到的部分照常识别。
 
 ### 5.2 识别（WhisperCliService）
 
