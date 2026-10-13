@@ -113,9 +113,16 @@ app.whenReady().then(() => {
     }
   )
 
-  createWindow()
+  // macOS 关窗不退出应用：窗口关了，朗读和识别也要停
+  const openWindow = (): void => {
+    createWindow().on('closed', () => {
+      void voice?.stopSpeaking()
+      voice?.cancelTranscribe()
+    })
+  }
+  openWindow()
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) openWindow()
   })
 })
 
