@@ -6,6 +6,7 @@ export default {
   'pages.loadFailed': '加载失败：{msg}',
   'pages.opFailed': '操作失败：{msg}',
   'pages.none': '暂无',
+  'pages.dropUnsupported': '只支持图片和 .txt / .md 文本文件',
   'pages.category.grammar': '语法',
   'pages.category.word_choice': '用词',
   'pages.category.naturalness': '地道程度',
@@ -20,6 +21,7 @@ export default {
   'pages.lessons.empty': '还没有课程',
   'pages.lessons.startQa': '开始课文问答',
   'pages.lessons.imagesSaved': '原图 {count} 张已保存在本机',
+  'pages.lessons.dropHint': '松开，识别为学习内容',
 
   'pages.lessonDialog.title': '识别为学习内容',
   'pages.lessonDialog.extract': '识别',

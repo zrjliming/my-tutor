@@ -6,6 +6,7 @@ export default {
   'pages.loadFailed': 'Failed to load: {msg}',
   'pages.opFailed': 'Action failed: {msg}',
   'pages.none': 'None yet',
+  'pages.dropUnsupported': 'Only images and .txt / .md text files are supported',
   'pages.category.grammar': 'Grammar',
   'pages.category.word_choice': 'Word choice',
   'pages.category.naturalness': 'Naturalness',
@@ -20,6 +21,7 @@ export default {
   'pages.lessons.empty': 'No lessons yet',
   'pages.lessons.startQa': 'Start lesson Q&A',
   'pages.lessons.imagesSaved': '{count} original image(s) saved on this device',
+  'pages.lessons.dropHint': 'Drop to extract study material',
 
   'pages.lessonDialog.title': 'Create a lesson',
   'pages.lessonDialog.extract': 'Extract',

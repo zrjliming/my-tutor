@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import type { ImageInput, LessonExtraction } from '@shared/types'
 import { api } from '../api'
 import { useChat } from '../store/ChatStore'
+import { classifyFiles, readTextFiles } from '../lib/dropFiles'
 import { fileToImageInput, rawToImageInput } from '../lib/image'
 import { Modal } from './Modal'
 import { t } from '../i18n'
@@ -12,6 +13,7 @@ interface Props {
   onClose: () => void
   initialFiles?: File[]
   initialRaw?: ImageInput[]
+  initialText?: string
   onSaved?: () => void
 }
 
@@ -20,6 +22,7 @@ export function LessonDialog({
   onClose,
   initialFiles,
   initialRaw,
+  initialText,
   onSaved
 }: Props): React.JSX.Element {
   const chat = useChat()
@@ -41,7 +44,7 @@ export function LessonDialog({
     if (open) {
       setStep('input')
       setImages([])
-      setText('')
+      setText(initialText ?? '')
       setDraft(null)
       setError(null)
     }
@@ -77,6 +80,30 @@ export function LessonDialog({
       setImages((prev) => [...prev, ...more].slice(0, 4))
     } catch (e) {
       setError(String((e as Error).message ?? e))
+    }
+  }
+
+  // 弹窗打开时拖入：图片追加到列表（最多 4 张），文本文件填进粘贴框
+  const onDrop = async (e: DragEvent): Promise<void> => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (step !== 'input') return
+    const { images: imgs, texts, other } = classifyFiles(e.dataTransfer.files)
+    if (!imgs.length && !texts.length) {
+      if (other.length) setError(t('pages.dropUnsupported'))
+      return
+    }
+    setError(null)
+    try {
+      const room = 4 - images.length
+      const [more, dropped] = await Promise.all([
+        Promise.all(imgs.slice(0, Math.max(room, 0)).map(fileToImageInput)),
+        readTextFiles(texts)
+      ])
+      if (more.length) setImages((prev) => [...prev, ...more].slice(0, 4))
+      if (dropped) setText((prev) => (prev.trim() ? `${prev.trimEnd()}\n\n${dropped}` : dropped))
+    } catch (err) {
+      setError(String((err as Error).message ?? err))
     }
   }
 
@@ -127,6 +154,7 @@ export function LessonDialog({
       open={open}
       onClose={onClose}
       title={t('pages.lessonDialog.title')}
+      onDrop={(e) => void onDrop(e)}
       footer={
         <>
           <button className="px-3 py-1.5 rounded-md border border-line" onClick={onClose}>
