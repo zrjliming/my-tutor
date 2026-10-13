@@ -1,4 +1,5 @@
 import type { ASRResult } from '@shared/types'
+import { tm } from '../i18n'
 
 interface Token {
   text?: unknown
@@ -17,7 +18,9 @@ const isAnnotation = (text: string): boolean => /^[[(][^\])]*[\])]$/.test(text)
 export function parseWhisperJson(json: unknown): ASRResult {
   const root = json as { transcription?: unknown } | null
   if (!root || !Array.isArray(root.transcription)) {
-    throw new Error('whisper JSON 缺少 transcription 数组')
+    throw new Error(
+      tm('whisper JSON 缺少 transcription 数组', 'whisper JSON has no transcription array')
+    )
   }
   const segments: ASRResult['segments'] = []
   const probs: number[] = []

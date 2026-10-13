@@ -26,6 +26,7 @@ import {
   insertPracticeSession,
   markReviewsApplied,
   markSessionEnded,
+  reopenSession,
   recentSummaries,
   saveSessionSummary,
   sessionsNeedingSummary,
@@ -247,6 +248,12 @@ describe('practice sessions, profile, stats', () => {
       summary: { practiced: '点餐' }
     })
     expect(sessionsNeedingSummary(db, 3, 10)).toEqual([])
+    // 小结生成期间被重开：过时小结不写入
+    reopenSession(db, C1)
+    saveSessionSummary(db, C1, { practiced: '旧', performanceZh: '旧', issues: [] })
+    expect(getPracticeSession(db, C1)?.summary).toBeNull()
+    markSessionEnded(db, C1, NOW)
+    saveSessionSummary(db, C1, { practiced: '点餐', performanceZh: '好', issues: ['冠词'] })
     expect(recentSummaries(db, 10)).toEqual([
       {
         conversationId: C1,

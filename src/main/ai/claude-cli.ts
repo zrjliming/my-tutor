@@ -17,6 +17,7 @@ import type {
 import { AIError, type AIProvider, type AnalyzeRequest, type ChatRequest } from './types'
 import { cleanEnv } from './env'
 import { toJsonSchema } from './json-schema'
+import { tm } from '../i18n'
 
 export type QueryFn = (params: {
   prompt: AsyncIterable<SDKUserMessage>
@@ -195,12 +196,16 @@ export class ClaudeCliProvider implements AIProvider {
     }
     for await (const ev of this.run(userMessage(req.text, req.images), options, req.schema)) {
       if (ev.type === 'done') {
-        if (ev.structured === undefined) throw new AIError('unknown', '模型没有返回结构化结果')
+        if (ev.structured === undefined)
+          throw new AIError(
+            'unknown',
+            tm('模型没有返回结构化结果', 'The model returned no structured result')
+          )
         return ev.structured as T
       }
       if (ev.type === 'error') throw new AIError(ev.kind, ev.message)
     }
-    throw new AIError('unknown', '调用结束但没有结果')
+    throw new AIError('unknown', tm('调用结束但没有结果', 'The call ended without a result'))
   }
 
   async deleteSession(conversationId: string): Promise<void> {
@@ -227,10 +232,15 @@ export class ClaudeCliProvider implements AIProvider {
       (m) => (model = m)
     )) {
       if (ev.type === 'done')
-        return { ok: true, model, durationMs: Date.now() - started, message: '连接正常' }
+        return {
+          ok: true,
+          model,
+          durationMs: Date.now() - started,
+          message: tm('连接正常', 'Connected')
+        }
       if (ev.type === 'error')
         return { ok: false, model, durationMs: Date.now() - started, message: ev.message }
     }
-    return { ok: false, message: '没有收到结果' }
+    return { ok: false, message: tm('没有收到结果', 'No result received') }
   }
 }

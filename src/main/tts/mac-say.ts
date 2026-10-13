@@ -3,6 +3,7 @@ import { stripMarkdownEmphasis } from '@shared/plain-text'
 import type { TTSVoice } from '@shared/types'
 import { cleanEnv } from '../ai/env'
 import { TTSError, type TTSService } from './types'
+import { tm } from '../i18n'
 
 export interface MacSayOptions {
   spawnFn?: typeof nodeSpawn
@@ -13,6 +14,12 @@ export interface MacSayOptions {
 
 export function speakTimeoutMs(text: string): number {
   return Math.min(120_000, 10_000 + text.length * 80)
+}
+
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region', style: 'short' })
+const regionName = (lang: string): string => {
+  const region = lang.split('_')[1]
+  return regionNames.of(region) ?? region
 }
 
 export function parseSayVoices(output: string): TTSVoice[] {
@@ -31,7 +38,11 @@ export function parseSayVoices(output: string): TTSVoice[] {
     seen.add(key)
     const shortName = raw.replace(/\s*[(（].*$/, '').trim()
     const suffix = /[(（](.*)[)）]\s*$/.exec(raw)?.[1]
-    voices.push({ id, label: suffix ? `${shortName}（${suffix}）` : shortName, lang })
+    // say 的后缀跟系统语言走，英文界面按语言代码自己拼，如 en_GB → English (UK)
+    const label = suffix
+      ? tm(`${shortName}（${suffix}）`, `${shortName} (English (${regionName(lang)}))`)
+      : shortName
+    voices.push({ id, label, lang })
   }
   return voices
 }
@@ -76,12 +87,19 @@ export class MacSayService implements TTSService {
         } catch {
           // 已退出
         }
-        finish(new TTSError('timeout', '朗读超时，已中止'))
+        finish(new TTSError('timeout', tm('朗读超时，已中止', 'Speech timed out and was stopped')))
       }, this.timeoutFor(text))
-      child.on('error', (e) => finish(new TTSError('failed', `无法启动 say：${e.message}`)))
+      child.on('error', (e) =>
+        finish(
+          new TTSError(
+            'failed',
+            tm(`无法启动 say：${e.message}`, `Could not start say: ${e.message}`)
+          )
+        )
+      )
       child.on('close', (code, sig) => {
         if (code === 0 || sig === 'SIGTERM') finish()
-        else finish(new TTSError('failed', `say 退出码 ${code}`))
+        else finish(new TTSError('failed', tm(`say 退出码 ${code}`, `say exit code ${code}`)))
       })
     })
     this.current = { child, done }

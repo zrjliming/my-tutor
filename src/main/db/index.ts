@@ -1,5 +1,6 @@
 import { DatabaseSync } from 'node:sqlite'
 import { MIGRATIONS } from './migrations'
+import { tm } from '../i18n'
 
 export type Db = DatabaseSync
 
@@ -20,7 +21,12 @@ export function migrate(db: Db): number {
   const row = db.prepare('PRAGMA user_version').get() as { user_version: number }
   let version = row.user_version
   if (version > MIGRATIONS.length) {
-    throw new Error(`数据库版本 (${version}) 比应用新，请升级应用`)
+    throw new Error(
+      tm(
+        `数据库版本 (${version}) 比应用新，请升级应用`,
+        `Database version (${version}) is newer than the app. Please update the app.`
+      )
+    )
   }
   for (; version < MIGRATIONS.length; version++) {
     db.exec('BEGIN')
