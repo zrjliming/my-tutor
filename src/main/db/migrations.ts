@@ -43,5 +43,53 @@ CREATE TABLE settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+`,
+  `
+CREATE TABLE mistakes (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT REFERENCES conversations(id) ON DELETE SET NULL,
+  message_id TEXT REFERENCES messages(id) ON DELETE SET NULL,
+  original TEXT NOT NULL,
+  improved TEXT NOT NULL,
+  explanation_zh TEXT NOT NULL,
+  category TEXT NOT NULL,
+  review_count INTEGER NOT NULL DEFAULT 0,
+  next_review_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX idx_mistakes_due ON mistakes(status, next_review_at);
+CREATE TABLE vocabulary (
+  id TEXT PRIMARY KEY,
+  word TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  meaning_zh TEXT NOT NULL DEFAULT '',
+  example TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL,
+  source_id TEXT,
+  seen_count INTEGER NOT NULL DEFAULT 1,
+  familiarity INTEGER NOT NULL DEFAULT 0,
+  next_review_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE practice_sessions (
+  conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+  mode TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  ended_at TEXT,
+  summary_json TEXT,
+  reviewed_mistake_ids TEXT NOT NULL DEFAULT '[]',
+  reviews_applied INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE learner_profile (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  level TEXT NOT NULL,
+  weaknesses_json TEXT NOT NULL,
+  progress_json TEXT NOT NULL,
+  suggestions_json TEXT NOT NULL,
+  summary_zh TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+INSERT INTO practice_sessions (conversation_id, mode, started_at)
+  SELECT id, mode, created_at FROM conversations;
 `
 ]

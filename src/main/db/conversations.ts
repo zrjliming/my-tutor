@@ -1,5 +1,6 @@
 import type { Conversation, Mode } from '@shared/types'
 import type { Db } from './index'
+import { clearVocabSource } from './vocabulary'
 
 interface Row {
   id: string
@@ -58,6 +59,7 @@ export function getConversation(db: Db, id: string): Conversation | undefined {
 }
 
 export function deleteConversation(db: Db, id: string): void {
+  clearVocabSource(db, 'conversation', id)
   db.prepare('DELETE FROM conversations WHERE id = ?').run(id)
 }
 
