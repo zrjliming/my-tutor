@@ -66,11 +66,11 @@ export class ModelManager {
   private async run(ac: AbortController): Promise<void> {
     const modelPath = this.opts.modelPath()
     const partPath = `${modelPath}.part`
-    mkdirSync(dirname(modelPath), { recursive: true })
-    rmSync(partPath, { force: true })
     let out: ReturnType<typeof createWriteStream> | null = null
     let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
     try {
+      mkdirSync(dirname(modelPath), { recursive: true })
+      rmSync(partPath, { force: true })
       const res = await this.fetchFn(this.url, { signal: ac.signal })
       if (!res.ok || !res.body) throw new Error(`下载失败：HTTP ${res.status}`)
       const totalHeader = res.headers.get('content-length')
@@ -106,7 +106,11 @@ export class ModelManager {
     } catch (e) {
       await reader?.cancel().catch(() => {})
       if (out) await new Promise<void>((resolve) => out!.end(resolve))
-      rmSync(partPath, { force: true })
+      try {
+        rmSync(partPath, { force: true })
+      } catch {
+        // 清理失败（如 .part 是目录）不影响上报 error
+      }
       if (ac.signal.aborted) this.opts.onProgress({ type: 'cancelled' })
       else this.opts.onProgress({ type: 'error', message: String((e as Error)?.message ?? e) })
     }

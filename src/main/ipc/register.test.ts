@@ -4,6 +4,8 @@ import { openDatabase } from '../db/index'
 import { FakeAIProvider } from '../ai/fake'
 import { ChatService } from '../chat/service'
 import { LessonService } from '../lessons/service'
+import { VoiceService } from '../voice/service'
+import { getSettings } from '../db/settings'
 import { registerIpc } from './register'
 import type { IpcHandleTarget } from './handle'
 
@@ -19,12 +21,34 @@ describe('registerIpc', () => {
     const ai = new FakeAIProvider()
     const chat = new ChatService({ db, ai, send: () => {} })
     const lessons = new LessonService({ db, ai, lessonsDir: '/tmp/my-tutor-test-lessons' })
-    registerIpc(ipc, { chat, lessons, ai, db }, async () => [])
+    const voice = new VoiceService({
+      asr: {
+        isReady: async () => ({ binary: false, model: false }),
+        transcribe: async () => ({ text: '', confidence: 0, segments: [] })
+      },
+      tts: { speak: async () => {}, stop: async () => {}, listVoices: async () => [] },
+      models: {
+        status: () => ({
+          modelPath: '/m',
+          modelFound: false,
+          modelBytes: null,
+          downloading: false
+        }),
+        download: async () => {},
+        cancel: () => {},
+        delete: () => {}
+      } as never,
+      getSettings: () => getSettings(db),
+      resolveConfig: () => ({ binaryPath: '/nope', modelPath: '/m' })
+    })
+    registerIpc(
+      ipc,
+      { chat, lessons, ai, db, voice },
+      { pickImages: async () => [], requestMic: async () => true, openMicSettings: async () => {} }
+    )
     expect([...handlers.keys()].sort()).toEqual(
       Object.values(IPC)
-        .filter((c) => c !== IPC.chatEvent)
-        // 语音通道在阶段 2 Task 7 注册后恢复断言
-        .filter((c) => !c.startsWith('voice:'))
+        .filter((c) => c !== IPC.chatEvent && c !== IPC.voiceModelProgress)
         .sort()
     )
 
@@ -44,5 +68,14 @@ describe('registerIpc', () => {
     }
     expect(settings.difficulty).toBe('beginner')
     expect(await handlers.get(IPC.aiCheck)!({})).toMatchObject({ ok: true })
+    expect(await handlers.get(IPC.voiceStatus)!({})).toMatchObject({
+      binaryFound: false,
+      modelFound: false
+    })
+    expect(await handlers.get(IPC.voiceRequestMic)!({})).toBe(true)
+    await expect(handlers.get(IPC.voiceTranscribe)!({}, { wav: 'nope' })).rejects.toThrow(
+      /参数无效/
+    )
+    await expect(handlers.get(IPC.voiceSpeak)!({}, { text: '' })).rejects.toThrow(/参数无效/)
   })
 })

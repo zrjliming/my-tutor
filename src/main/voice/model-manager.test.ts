@@ -116,6 +116,14 @@ describe('ModelManager.download', () => {
       chmodSync(roDir, 0o755)
     }
   })
+  it('reports error (download never rejects) when the stale .part cannot be removed', async () => {
+    mkdirSync(`${modelPath}.part`)
+    const m = mk(okFetch(['abc'], 3))
+    await expect(m.download()).resolves.toBeUndefined()
+    expect(events.at(-1)).toMatchObject({ type: 'error' })
+    expect(existsSync(modelPath)).toBe(false)
+    expect(m.status().downloading).toBe(false)
+  })
   it('reports error when the body is shorter than content-length', async () => {
     const m = mk(okFetch(['abc'], 10))
     await m.download()

@@ -6,13 +6,16 @@ import {
   ExtractLessonInputSchema,
   SaveLessonInputSchema,
   SendMessageInputSchema,
-  SettingsPatchSchema
+  SettingsPatchSchema,
+  SpeakInputSchema,
+  TranscribeInputSchema
 } from '@shared/schemas'
 import type { ImageInput } from '@shared/types'
 import type { AIProvider } from '../ai/types'
 import type { ChatService } from '../chat/service'
 import type { LessonService } from '../lessons/service'
 import type { Db } from '../db/index'
+import type { VoiceService } from '../voice/service'
 import { listConversations } from '../db/conversations'
 import { listMessages } from '../db/messages'
 import { getSettings, patchSettings } from '../db/settings'
@@ -23,12 +26,19 @@ export interface Services {
   lessons: LessonService
   ai: AIProvider
   db: Db
+  voice: VoiceService
+}
+
+export interface IpcHooks {
+  pickImages: () => Promise<ImageInput[]>
+  requestMic: () => Promise<boolean>
+  openMicSettings: () => Promise<void>
 }
 
 export function registerIpc(
   ipc: IpcHandleTarget,
-  { chat, lessons, ai, db }: Services,
-  pickImages: () => Promise<ImageInput[]>
+  { chat, lessons, ai, db, voice }: Services,
+  hooks: IpcHooks
 ): void {
   registerVoidHandler(ipc, IPC.conversationsList, () => listConversations(db))
   registerHandler(ipc, IPC.conversationsCreate, CreateConversationInputSchema, (i) =>
@@ -51,5 +61,22 @@ export function registerIpc(
   registerVoidHandler(ipc, IPC.settingsGet, () => getSettings(db))
   registerHandler(ipc, IPC.settingsPatch, SettingsPatchSchema, (p) => patchSettings(db, p))
   registerVoidHandler(ipc, IPC.aiCheck, () => ai.check())
-  registerVoidHandler(ipc, IPC.imagePick, () => pickImages())
+  registerVoidHandler(ipc, IPC.imagePick, () => hooks.pickImages())
+  registerVoidHandler(ipc, IPC.voiceStatus, () => voice.status())
+  registerHandler(ipc, IPC.voiceTranscribe, TranscribeInputSchema, (i) => voice.transcribe(i.wav))
+  registerVoidHandler(ipc, IPC.voiceCancelTranscribe, () => {
+    voice.cancelTranscribe()
+  })
+  registerHandler(ipc, IPC.voiceSpeak, SpeakInputSchema, (i) => voice.speak(i.text))
+  registerVoidHandler(ipc, IPC.voiceStopSpeaking, () => voice.stopSpeaking())
+  registerVoidHandler(ipc, IPC.voiceListVoices, () => voice.listVoices())
+  registerVoidHandler(ipc, IPC.voiceDownloadModel, () => voice.downloadModel())
+  registerVoidHandler(ipc, IPC.voiceCancelDownload, () => {
+    voice.cancelDownload()
+  })
+  registerVoidHandler(ipc, IPC.voiceDeleteModel, () => {
+    voice.deleteModel()
+  })
+  registerVoidHandler(ipc, IPC.voiceRequestMic, () => hooks.requestMic())
+  registerVoidHandler(ipc, IPC.voiceOpenMicSettings, () => hooks.openMicSettings())
 }

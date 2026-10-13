@@ -1,9 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, net, shell, systemPreferences } from 'electron'
 import { readFileSync, statSync } from 'node:fs'
 import { basename, extname, sep } from 'node:path'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { IPC } from '@shared/ipc'
-import type { ChatIpcEvent, ImageInput } from '@shared/types'
+import type { ChatIpcEvent, ImageInput, ModelProgressEvent } from '@shared/types'
 import { createWindow, installCsp } from './window'
 import { resolvePaths } from './paths'
 import { openDatabase, type Db } from './db/index'
@@ -14,6 +14,11 @@ import { ClaudeCliProvider } from './ai/claude-cli'
 import { ChatService } from './chat/service'
 import { LessonService } from './lessons/service'
 import { registerIpc } from './ipc/register'
+import { getSettings } from './db/settings'
+import { WhisperCliService, type WhisperConfig } from './asr/whisper-cli'
+import { MacSayService } from './tts/mac-say'
+import { ModelManager } from './voice/model-manager'
+import { resolveWhisperConfig, VoiceService } from './voice/service'
 
 function packagedCliPath(): string | undefined {
   if (!app.isPackaged) return undefined
@@ -48,6 +53,7 @@ async function pickImages(): Promise<ImageInput[]> {
 }
 
 let chat: ChatService | undefined
+let voice: VoiceService | undefined
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.mytutor.app')
@@ -77,12 +83,35 @@ app.whenReady().then(() => {
           }
         })
       : new ClaudeCliProvider({ sessionsDir: paths.sessionsDir, cliPath: packagedCliPath() })
-  const send = (event: ChatIpcEvent): void => {
-    for (const w of BrowserWindow.getAllWindows()) w.webContents.send(IPC.chatEvent, event)
+  const broadcast = (channel: string, payload: unknown): void => {
+    for (const w of BrowserWindow.getAllWindows()) w.webContents.send(channel, payload)
   }
+  const send = (event: ChatIpcEvent): void => broadcast(IPC.chatEvent, event)
   chat = new ChatService({ db, ai, send })
   const lessons = new LessonService({ db, ai, lessonsDir: paths.lessonsDir })
-  registerIpc(ipcMain, { chat, lessons, ai, db }, pickImages)
+
+  const resolveConfig = (): WhisperConfig => resolveWhisperConfig(getSettings(db), paths.modelsDir)
+  const asr = new WhisperCliService({ getConfig: resolveConfig, tmpDir: paths.tmpDir })
+  const tts = new MacSayService()
+  const models = new ModelManager({
+    modelPath: () => resolveConfig().modelPath,
+    fetchFn: (input, init) => net.fetch(input as string, init),
+    onProgress: (e: ModelProgressEvent) => broadcast(IPC.voiceModelProgress, e)
+  })
+  voice = new VoiceService({ asr, tts, models, getSettings: () => getSettings(db), resolveConfig })
+
+  registerIpc(
+    ipcMain,
+    { chat, lessons, ai, db, voice },
+    {
+      pickImages,
+      requestMic: () => systemPreferences.askForMediaAccess('microphone'),
+      openMicSettings: () =>
+        shell.openExternal(
+          'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
+        )
+    }
+  )
 
   createWindow()
   app.on('activate', () => {
@@ -90,7 +119,10 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('before-quit', () => chat?.cancelAll())
+app.on('before-quit', () => {
+  chat?.cancelAll()
+  void voice?.shutdown()
+})
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
