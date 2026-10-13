@@ -147,6 +147,10 @@ export function ChatPage({
         recorder.cancel()
         return
       }
+      // 重新录音：清掉旧横幅、旧的识别标记和输入框里的旧文字
+      chat.clearError()
+      chat.clearAsrDraft()
+      setText('')
       chat.dispatchUiFor(cid, 'START_RECORDING')
     } catch (e) {
       if (!mountedRef.current || isRecordingCancelled(e)) return
