@@ -88,7 +88,7 @@ export default {
   'pages.vocab.notFound': 'No results for “{query}”.',
   'pages.vocab.empty': 'No words yet. New words from chats and lessons are collected here.',
   'pages.vocab.familiarity': 'Familiarity {n}/5',
-  'pages.vocab.setFamiliarity': 'Set familiarity to {n}',
+  'pages.vocab.setFamiliarity': '{word}: set familiarity to {n}',
   'pages.vocab.sourceDeleted': 'Source deleted',
   'pages.vocab.fromLesson': 'From a lesson',
   'pages.vocab.fromChat': 'From a conversation',

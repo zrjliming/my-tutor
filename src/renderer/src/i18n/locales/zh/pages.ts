@@ -85,7 +85,7 @@ export default {
   'pages.vocab.notFound': '没有找到「{query}」。',
   'pages.vocab.empty': '还没有生词。聊天和课程里出现的生词会自动收进来。',
   'pages.vocab.familiarity': '熟悉度 {n}/5',
-  'pages.vocab.setFamiliarity': '熟悉度设为 {n}',
+  'pages.vocab.setFamiliarity': '{word}：熟悉度设为 {n}',
   'pages.vocab.sourceDeleted': '来源已删除',
   'pages.vocab.fromLesson': '来自课程',
   'pages.vocab.fromChat': '来自会话',

@@ -10,15 +10,21 @@ export function VocabPage(): React.JSX.Element {
   const [loaded, setLoaded] = useState(false)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const reqId = useRef(0)
 
+  // 只采用最新一次请求的结果，避免慢的旧搜索结果覆盖新结果
   const reload = useCallback(async (q: string) => {
+    const id = ++reqId.current
     try {
-      setItems(await api.vocab.list(q))
+      const list = await api.vocab.list(q)
+      if (id !== reqId.current) return
+      setItems(list)
       setError(null)
     } catch (e) {
+      if (id !== reqId.current) return
       setError(t('pages.loadFailed', { msg: String((e as Error)?.message ?? e) }))
     } finally {
-      setLoaded(true)
+      if (id === reqId.current) setLoaded(true)
     }
   }, [])
 
@@ -93,16 +99,22 @@ export function VocabPage(): React.JSX.Element {
                 <b>{v.word}</b>
                 <span className="text-zh text-sm">{v.meaningZh}</span>
                 <span
-                  className="inline-flex gap-1"
+                  className="inline-flex -my-[5px]"
                   title={t('pages.vocab.familiarity', { n: v.familiarity })}
                 >
                   {[1, 2, 3, 4, 5].map((k) => (
                     <button
                       key={k}
-                      aria-label={t('pages.vocab.setFamiliarity', { n: k })}
-                      onClick={() => void setFam(v, v.familiarity === k ? k - 1 : k)}
-                      className={`w-2.5 h-2.5 rounded-full ${k <= v.familiarity ? 'bg-accent' : 'bg-line'}`}
-                    />
+                      aria-label={t('pages.vocab.setFamiliarity', { word: v.word, n: k })}
+                      onClick={() => {
+                        void setFam(v, v.familiarity === k ? k - 1 : k)
+                      }}
+                      className="p-[5px]"
+                    >
+                      <span
+                        className={`block w-2.5 h-2.5 rounded-full ${k <= v.familiarity ? 'bg-accent' : 'bg-line'}`}
+                      />
+                    </button>
                   ))}
                 </span>
               </div>
