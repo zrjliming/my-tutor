@@ -25,7 +25,7 @@ mac:
       arch: [arm64]
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSMicrophoneUsageDescription: my-tutor 需要使用麦克风录制你的英语口语，录音只在本机识别。
+    NSMicrophoneUsageDescription: my-tutor 需要使用麦克风录制你的英语口语，录音只在本机识别。
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
