@@ -99,9 +99,9 @@ export function AnalysisPage({
               <h3 className="text-sm font-semibold m-0">薄弱点</h3>
               <div className="flex flex-wrap gap-1.5">
                 {profile.weaknesses.length ? (
-                  profile.weaknesses.map((w) => (
+                  profile.weaknesses.map((w, i) => (
                     <span
-                      key={w}
+                      key={`${i}-${w}`}
                       className="px-2 py-0.5 rounded-full bg-accent-soft text-accent text-xs"
                     >
                       {w}
@@ -114,8 +114,8 @@ export function AnalysisPage({
               <h3 className="text-sm font-semibold m-0 mt-2">近期进步</h3>
               {profile.progress.length ? (
                 <ul className="m-0 pl-4 text-sm list-disc">
-                  {profile.progress.map((p) => (
-                    <li key={p}>{p}</li>
+                  {profile.progress.map((p, i) => (
+                    <li key={`${i}-${p}`}>{p}</li>
                   ))}
                 </ul>
               ) : (
@@ -125,8 +125,8 @@ export function AnalysisPage({
             <section className={card}>
               <h3 className="text-sm font-semibold m-0">建议</h3>
               <ul className="m-0 pl-4 text-sm list-disc">
-                {profile.suggestions.map((s) => (
-                  <li key={s}>{s}</li>
+                {profile.suggestions.map((s, i) => (
+                  <li key={`${i}-${s}`}>{s}</li>
                 ))}
               </ul>
             </section>

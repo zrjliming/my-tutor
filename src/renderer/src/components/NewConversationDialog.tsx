@@ -34,13 +34,18 @@ export function NewConversationDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [wasOpen, setWasOpen] = useState(open)
-  const [targetInfo, setTargetInfo] = useState<{ weaknesses: string[]; due: number } | null>(null)
+  const [targetInfo, setTargetInfo] = useState<{
+    hasProfile: boolean
+    weaknesses: string[]
+    due: number
+  } | null>(null)
 
   if (open !== wasOpen) {
     setWasOpen(open)
     if (open) {
       setMode(presetMode ?? 'free')
       setError(null)
+      setTargetInfo(null)
     }
   }
 
@@ -54,9 +59,19 @@ export function NewConversationDialog({
 
   useEffect(() => {
     if (!open) return
-    void Promise.all([api.learning.profile(), api.mistakes.list('due')]).then(([p, due]) =>
-      setTargetInfo({ weaknesses: p?.weaknesses ?? [], due: due.length })
+    let alive = true
+    void Promise.all([api.learning.profile(), api.mistakes.list('due')]).then(
+      ([p, due]) => {
+        if (alive)
+          setTargetInfo({ hasProfile: !!p, weaknesses: p?.weaknesses ?? [], due: due.length })
+      },
+      () => {
+        if (alive) setTargetInfo({ hasProfile: false, weaknesses: [], due: 0 })
+      }
     )
+    return () => {
+      alive = false
+    }
   }, [open])
 
   const needsLesson = mode === 'lesson'
@@ -159,7 +174,9 @@ export function NewConversationDialog({
             本次练习：
             {targetInfo.weaknesses.length
               ? targetInfo.weaknesses.slice(0, 3).join('、')
-              : '还没有学习画像'}{' '}
+              : targetInfo.hasProfile
+                ? '学习画像暂无薄弱点'
+                : '还没有学习画像'}{' '}
             · 到期错句 {Math.min(targetInfo.due, 5)} 条
           </span>
           {targetInfo.weaknesses.length === 0 && targetInfo.due === 0 && (
