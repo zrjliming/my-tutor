@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { FakeAIProvider } from './fake'
-import { LessonExtractionSchema } from '@shared/schemas'
+import { LessonExtractionSchema, SessionSummarySchema } from '@shared/schemas'
 import type { ChatEvent } from '@shared/types'
 
 async function collect(it: AsyncIterable<ChatEvent>): Promise<ChatEvent[]> {
@@ -74,5 +74,20 @@ describe('FakeAIProvider', () => {
     await fake.deleteSession('c1')
     expect(fake.deleted).toEqual(['c1'])
     expect((await fake.check()).ok).toBe(true)
+  })
+
+  it('analyze picks the first candidate that matches the requested schema', async () => {
+    const fake = new FakeAIProvider({
+      analyzeCandidates: [
+        { title: 'L', body: 'b', vocabulary: [], notesZh: '' },
+        { practiced: '点餐', performanceZh: '好', issues: [] }
+      ]
+    })
+    expect(
+      await fake.analyze({ systemPrompt: 's', text: 't', schema: SessionSummarySchema })
+    ).toEqual({ practiced: '点餐', performanceZh: '好', issues: [] })
+    expect(
+      (await fake.analyze({ systemPrompt: 's', text: 't', schema: LessonExtractionSchema })).title
+    ).toBe('L')
   })
 })

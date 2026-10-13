@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type {
   ChatEvent,
+  TutorResponse,
   ChatIpcEvent,
   Conversation,
   CreateConversationInput,
@@ -20,7 +21,16 @@ import {
 import { insertMessage, updateMessage } from '../db/messages'
 import { getLesson } from '../db/lessons'
 import { getSettings } from '../db/settings'
-import { buildSystemPrompt, OPENING_INSTRUCTION } from '../learning/prompts'
+import { dueMistakes, getMistakesByIds, insertMistake } from '../db/mistakes'
+import { getPracticeSession, insertPracticeSession, reopenSession } from '../db/practice'
+import { getProfile } from '../db/profile'
+import { upsertVocab } from '../db/vocabulary'
+import {
+  buildSystemPrompt,
+  formatProfileSummary,
+  OPENING_INSTRUCTION,
+  type TargetedMaterial
+} from '../learning/prompts'
 
 // 语音识别可能把 goed 悄悄规整成 go/got：告诉 Claude 这一轮来自 ASR，只发给 provider，不入库
 const ASR_NOTE =
@@ -73,7 +83,11 @@ export class ChatService {
       endedAt: null
     }
     insertConversation(this.deps.db, conversation)
-    const assistantMessageId = this.startTurn(conversation, OPENING_INSTRUCTION)
+    // 针对性练习的材料只在创建时选一次，首轮失败重试也用同一批
+    const reviewedIds =
+      input.mode === 'targeted' ? dueMistakes(this.deps.db, this.now(), 5).map((m) => m.id) : []
+    insertPracticeSession(this.deps.db, conversation.id, input.mode, now, reviewedIds)
+    const assistantMessageId = this.startTurn(conversation, OPENING_INSTRUCTION, true)
     return { conversation, assistantMessageId }
   }
 
@@ -95,6 +109,7 @@ export class ChatService {
     }
     insertMessage(this.deps.db, userMessage)
     bumpTurn(this.deps.db, conversation.id, userMessage.createdAt)
+    reopenSession(this.deps.db, conversation.id)
     const assistantMessageId = this.startTurn(
       conversation,
       userMessage.fromAsr ? `${ASR_NOTE}\n${input.text}` : input.text
@@ -121,7 +136,7 @@ export class ChatService {
     await this.deps.ai.deleteSession(conversationId)
   }
 
-  private startTurn(conversation: Conversation, text: string): string {
+  private startTurn(conversation: Conversation, text: string, isOpening = false): string {
     const assistantMessageId = this.uuid()
     insertMessage(this.deps.db, {
       id: assistantMessageId,
@@ -134,8 +149,8 @@ export class ChatService {
       createdAt: this.now()
     })
     const ac = new AbortController()
-    const done = this.runTurn(conversation.id, text, assistantMessageId, ac).finally(() =>
-      this.active.delete(conversation.id)
+    const done = this.runTurn(conversation.id, text, assistantMessageId, ac, isOpening).finally(
+      () => this.active.delete(conversation.id)
     )
     this.active.set(conversation.id, { ac, done })
     return assistantMessageId
@@ -145,7 +160,8 @@ export class ChatService {
     conversationId: string,
     text: string,
     assistantMessageId: string,
-    ac: AbortController
+    ac: AbortController,
+    isOpening: boolean
   ): Promise<void> {
     const { db, ai, send } = this.deps
     const conversation = getConversation(db, conversationId)
@@ -155,6 +171,18 @@ export class ChatService {
     let systemPrompt: string | undefined
     if (firstTurn) {
       const lesson = conversation.lessonId ? getLesson(db, conversation.lessonId) : undefined
+      const profile = getProfile(db)
+      let targeted: TargetedMaterial | undefined
+      if (conversation.mode === 'targeted') {
+        const ids = getPracticeSession(db, conversationId)?.reviewedMistakeIds ?? []
+        targeted = {
+          weaknesses: profile?.weaknesses.slice(0, 3) ?? [],
+          mistakes: getMistakesByIds(db, ids).map(({ original, improved }) => ({
+            original,
+            improved
+          }))
+        }
+      }
       systemPrompt = buildSystemPrompt({
         mode: conversation.mode,
         difficulty: settings.difficulty,
@@ -162,7 +190,9 @@ export class ChatService {
         lesson: lesson
           ? { title: lesson.title, body: lesson.body, notesZh: lesson.notesZh }
           : undefined,
-        scenario: conversation.scenario ?? undefined
+        scenario: conversation.scenario ?? undefined,
+        profileSummary: profile ? formatProfileSummary(profile) : undefined,
+        targeted
       })
     }
     let content = ''
@@ -197,6 +227,9 @@ export class ChatService {
             status: 'done'
           })
           if (firstTurn) markSessionStarted(db, conversationId)
+          if (ev.structured && !isOpening) {
+            this.recordLearning(conversationId, assistantMessageId, ev.structured)
+          }
         } else if (ev.type === 'error') {
           terminal = true
           updateMessage(db, assistantMessageId, {
@@ -230,5 +263,47 @@ export class ChatService {
     }
     // 首轮没成功时 CLI 可能已写下会话文件，不删的话下次带同一 sessionId 会被拒（already in use）
     if (firstTurn && !completed) await ai.deleteSession(conversationId)
+  }
+
+  private recordLearning(
+    conversationId: string,
+    assistantMessageId: string,
+    structured: TutorResponse
+  ): void {
+    const { db } = this.deps
+    try {
+      const c = structured.correction
+      if (c && c.uncertain !== true) {
+        insertMistake(
+          db,
+          {
+            conversationId,
+            messageId: assistantMessageId,
+            original: c.original,
+            improved: c.improved,
+            explanationZh: c.explanationZh,
+            category: c.category
+          },
+          this.now(),
+          this.uuid()
+        )
+      }
+      for (const v of structured.vocabulary ?? []) {
+        upsertVocab(
+          db,
+          {
+            word: v.word,
+            meaningZh: v.meaningZh,
+            example: v.example,
+            source: 'conversation',
+            sourceId: conversationId
+          },
+          this.now(),
+          this.uuid()
+        )
+      }
+    } catch (e) {
+      console.warn('[my-tutor] 学习记录写入失败', e)
+    }
   }
 }

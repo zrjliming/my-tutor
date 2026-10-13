@@ -8,6 +8,9 @@ import { LessonsPage } from './components/LessonsPage'
 import { NewConversationDialog } from './components/NewConversationDialog'
 import { LessonDialog } from './components/LessonDialog'
 import { SettingsPage } from './components/SettingsPage'
+import { MistakesPage } from './components/MistakesPage'
+import { VocabPage } from './components/VocabPage'
+import { AnalysisPage } from './components/AnalysisPage'
 
 export default function App(): React.JSX.Element {
   const [page, setPage] = useState<Page>('chat')
@@ -50,6 +53,16 @@ export default function App(): React.JSX.Element {
               onNewFromImage={() => void pickAndOpen()}
               onStartQa={(lessonId) => {
                 setNewOpen({ mode: 'lesson', lessonId })
+                setPage('chat')
+              }}
+            />
+          )}
+          {page === 'mistakes' && <MistakesPage />}
+          {page === 'vocab' && <VocabPage />}
+          {page === 'analysis' && (
+            <AnalysisPage
+              onStartTargeted={() => {
+                setNewOpen({ mode: 'targeted' })
                 setPage('chat')
               }}
             />

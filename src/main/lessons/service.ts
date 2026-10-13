@@ -12,6 +12,7 @@ import type {
 import type { AIProvider } from '../ai/types'
 import type { Db } from '../db/index'
 import { deleteLesson, getLesson, insertLesson, listLessons } from '../db/lessons'
+import { upsertVocab } from '../db/vocabulary'
 import { EXTRACT_LESSON_PROMPT } from '../learning/prompts'
 
 export interface LessonServiceDeps {
@@ -76,6 +77,25 @@ export class LessonService {
       assets
     }
     insertLesson(this.deps.db, lesson)
+    // 课程已保存：生词写入失败只记日志，不让保存失败
+    try {
+      for (const v of input.vocabulary) {
+        upsertVocab(
+          this.deps.db,
+          {
+            word: v.word,
+            meaningZh: v.meaningZh,
+            example: v.example,
+            source: 'lesson',
+            sourceId: id
+          },
+          lesson.createdAt,
+          this.uuid()
+        )
+      }
+    } catch (e) {
+      console.warn('[my-tutor] lesson vocabulary upsert failed', e)
+    }
     return getLesson(this.deps.db, id)!
   }
 

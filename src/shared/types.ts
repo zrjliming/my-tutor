@@ -165,3 +165,74 @@ export const WHISPER_MODEL_URL =
   'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin'
 export const TTS_RATE_MIN = 100
 export const TTS_RATE_MAX = 300
+
+// ---- 学习记录与画像（阶段 3） ----
+export type CorrectionCategory = 'grammar' | 'word_choice' | 'naturalness' | 'other'
+
+export const CATEGORY_LABEL: Record<CorrectionCategory, string> = {
+  grammar: '语法',
+  word_choice: '用词',
+  naturalness: '地道程度',
+  other: '其他'
+}
+
+export interface Mistake {
+  id: string
+  conversationId: string | null
+  messageId: string | null
+  original: string
+  improved: string
+  explanationZh: string
+  category: CorrectionCategory
+  reviewCount: number
+  nextReviewAt: string
+  status: 'pending' | 'mastered'
+  createdAt: string
+}
+
+export interface VocabEntry {
+  id: string
+  word: string
+  meaningZh: string
+  example: string
+  source: 'conversation' | 'lesson'
+  sourceId: string | null
+  seenCount: number
+  familiarity: number
+  nextReviewAt: string
+  createdAt: string
+}
+
+export interface SessionSummary {
+  practiced: string
+  performanceZh: string
+  issues: string[]
+}
+
+export type CefrLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1'
+
+export interface LearnerProfile {
+  level: CefrLevel
+  weaknesses: string[]
+  progress: string[]
+  suggestions: string[]
+  summaryZh: string
+  updatedAt: string
+}
+
+export interface LearningStats {
+  mistakesByCategory: Record<CorrectionCategory, number>
+  mistakesPending: number
+  mistakesDue: number
+  mistakesMastered: number
+  vocabTotal: number
+  vocabByFamiliarity: number[]
+  sessions: number
+  totalTurns: number
+}
+
+export type MistakeFilter = 'all' | 'due' | 'mastered' | CorrectionCategory
+
+export type AnalyzeOutcome = { ok: true; profile: LearnerProfile } | { ok: false; message: string }
+
+export const REVIEW_INTERVALS_DAYS = [1, 3, 7, 14] as const
