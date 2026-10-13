@@ -1,4 +1,5 @@
 import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process'
+import { stripMarkdownEmphasis } from '@shared/plain-text'
 import type { TTSVoice } from '@shared/types'
 import { cleanEnv } from '../ai/env'
 import { TTSError, type TTSService } from './types'
@@ -49,7 +50,9 @@ export class MacSayService implements TTSService {
     this.timeoutFor = opts.timeoutMs ?? speakTimeoutMs
   }
 
-  async speak(text: string, { voice, rate }: { voice: string; rate: number }): Promise<void> {
+  async speak(raw: string, { voice, rate }: { voice: string; rate: number }): Promise<void> {
+    // 兜底：回复偶尔带 **加粗** 之类的 Markdown，不能把星号读出来
+    const text = stripMarkdownEmphasis(raw)
     const gen = ++this.generation
     await this.stopCurrent()
     if (gen !== this.generation) return

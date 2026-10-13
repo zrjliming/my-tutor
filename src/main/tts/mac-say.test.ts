@@ -80,6 +80,16 @@ describe('MacSayService', () => {
     f.children[0].emit('close', 0)
     await expect(p).resolves.toBeUndefined()
   })
+  it('strips Markdown emphasis before writing to say', async () => {
+    const f = fakeSpawn()
+    const tts = new MacSayService({ spawnFn: f.spawnFn as never })
+    const p = tts.speak('You **went** there, not `goed`.', { voice: 'Samantha', rate: 180 })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(f.children[0].written).toBe('You went there, not goed.')
+    f.children[0].emit('close', 0)
+    await p
+  })
+
   it('stop kills the running process and the pending speak resolves', async () => {
     const f = fakeSpawn()
     const tts = new MacSayService({ spawnFn: f.spawnFn as never })

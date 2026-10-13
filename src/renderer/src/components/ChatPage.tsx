@@ -26,11 +26,13 @@ const ERROR_TEXT: Record<Exclude<AIErrorKind, 'aborted'>, string> = {
   unknown: '请求失败，请稍后再试。'
 }
 
+const NOT_READY_PREFIX = '语音识别未就绪'
+
 async function voiceReadiness(): Promise<{ ok: boolean; reason: string }> {
   const s = await api.voice.status()
   if (!s.binaryFound)
-    return { ok: false, reason: '语音识别未就绪：找不到 whisper-cli，去设置页检查' }
-  if (!s.modelFound) return { ok: false, reason: '语音识别未就绪：模型未下载，去设置页下载' }
+    return { ok: false, reason: `${NOT_READY_PREFIX}：找不到 whisper-cli，去设置页检查` }
+  if (!s.modelFound) return { ok: false, reason: `${NOT_READY_PREFIX}：模型未下载，去设置页下载` }
   return { ok: true, reason: '开始录音' }
 }
 
@@ -190,6 +192,29 @@ export function ChatPage({
   const [drag, setDrag] = useState(false)
   const err = chat.current ? chat.state.errors[chat.current.id] : undefined
   const retrying = chat.current ? chat.state.retrying[chat.current.id] : undefined
+
+  // 窗口重新获得焦点/变为可见时重查语音状态：模型在别处恢复后麦克风能自动解禁，并清掉旧的"未就绪"横幅
+  const readinessBannerRef = useRef({ err, clearError: chat.clearError })
+  useLayoutEffect(() => {
+    readinessBannerRef.current = { err, clearError: chat.clearError }
+  })
+  useEffect(() => {
+    const recheck = (): void => {
+      if (document.visibilityState === 'hidden') return
+      void voiceReadiness().then((ready) => {
+        if (!mountedRef.current) return
+        setVoiceReady(ready)
+        const banner = readinessBannerRef.current
+        if (ready.ok && banner.err?.startsWith(NOT_READY_PREFIX)) banner.clearError()
+      })
+    }
+    window.addEventListener('focus', recheck)
+    document.addEventListener('visibilitychange', recheck)
+    return () => {
+      window.removeEventListener('focus', recheck)
+      document.removeEventListener('visibilitychange', recheck)
+    }
+  }, [])
 
   const onDrop = (e: DragEvent): void => {
     e.preventDefault()

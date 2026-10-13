@@ -1,3 +1,4 @@
+import { stripMarkdownEmphasis } from '@shared/plain-text'
 import type { Message } from '@shared/types'
 import { CorrectionCard } from './CorrectionCard'
 import { VocabChips } from './VocabChips'
@@ -20,7 +21,8 @@ export function MessageBubble({
       <div
         className={`px-3 py-2 rounded-xl whitespace-pre-wrap selectable ${isUser ? 'bg-accent text-white rounded-br-sm' : 'bg-ai-bubble rounded-bl-sm'}`}
       >
-        {message.content || (streaming ? '' : '…')}
+        {(isUser ? message.content : stripMarkdownEmphasis(message.content)) ||
+          (streaming ? '' : '…')}
         {streaming && <span className="text-accent animate-pulse">▍</span>}
       </div>
       {!isUser && message.structured?.correction && (
