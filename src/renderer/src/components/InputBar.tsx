@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent } from 'react'
 import { ASR_LOW_CONFIDENCE, MAX_RECORDING_SECONDS } from '@shared/types'
+import { t } from '../i18n'
 import { canRecord, canSend, isBusy, type UiState } from '../state/machine'
 
 interface Props {
@@ -25,11 +26,11 @@ export function InputBar(p: Props): React.JSX.Element {
   const recording = p.ui === 'recording'
   const transcribing = p.ui === 'transcribing'
   const submit = (): void => {
-    const t = p.value.trim()
-    if (!t || !canSend(p.ui) || sending) return
+    const text = p.value.trim()
+    if (!text || !canSend(p.ui) || sending) return
     setSending(true)
     // 成功后才清空；失败时保留文字（错误提示由 store 显示）
-    p.onSend(t)
+    p.onSend(text)
       .then(() => p.onChange(''))
       .catch(() => {})
       .finally(() => setSending(false))
@@ -50,8 +51,9 @@ export function InputBar(p: Props): React.JSX.Element {
         <span
           className={`self-start inline-flex items-center gap-1.5 text-[11.5px] px-2 py-0.5 rounded ${low ? 'bg-warn-soft text-warn' : 'bg-good-soft text-good'}`}
         >
-          🎙 来自语音识别{low ? ' · 识别不确定，请检查' : ''}
-          <button className="ml-1" title="清除标记" onClick={p.onClearAsr}>
+          {t('chat.input.fromAsr')}
+          {low ? t('chat.input.asrUncertain') : ''}
+          <button className="ml-1" title={t('chat.input.clearAsr')} onClick={p.onClearAsr}>
             ✕
           </button>
         </span>
@@ -59,7 +61,7 @@ export function InputBar(p: Props): React.JSX.Element {
       <div className="flex items-end gap-2">
         <button
           className={plain}
-          title="选择图片，识别为学习内容"
+          title={t('chat.input.pickImage')}
           onClick={p.onPickImage}
           disabled={busy || recording || transcribing}
         >
@@ -68,7 +70,7 @@ export function InputBar(p: Props): React.JSX.Element {
         <textarea
           id="chat-input"
           className="flex-1 min-w-0 resize-none h-10 max-h-30 rounded-md border border-line bg-surface px-2 py-1.5 focus:outline-2 focus:outline-accent"
-          placeholder={transcribing ? '正在识别…' : '输入英文，或点麦克风说话…'}
+          placeholder={transcribing ? t('chat.input.transcribing') : t('chat.input.placeholder')}
           value={p.value}
           onChange={(e) => {
             p.onChange(e.target.value)
@@ -85,7 +87,7 @@ export function InputBar(p: Props): React.JSX.Element {
         )}
         <button
           className={recording ? `${btn} bg-bad text-white border-transparent` : plain}
-          title={recording ? '结束录音' : p.micTitle}
+          title={recording ? t('chat.input.stopRecording') : p.micTitle}
           onClick={p.onMic}
           disabled={p.micDisabled || transcribing || busy || (!recording && !canRecord(p.ui))}
         >
@@ -94,7 +96,7 @@ export function InputBar(p: Props): React.JSX.Element {
         {busy || transcribing ? (
           <button
             className={`${btn} bg-bad-soft text-bad`}
-            title={transcribing ? '取消识别' : '停止生成'}
+            title={transcribing ? t('chat.input.cancelTranscribe') : t('chat.input.stopGenerating')}
             onClick={p.onStop}
           >
             ■
@@ -102,7 +104,7 @@ export function InputBar(p: Props): React.JSX.Element {
         ) : (
           <button
             className={`${btn} bg-accent text-white border-transparent`}
-            title="发送"
+            title={t('chat.input.send')}
             onClick={submit}
             disabled={!canSend(p.ui) || !p.value.trim() || sending || recording}
           >

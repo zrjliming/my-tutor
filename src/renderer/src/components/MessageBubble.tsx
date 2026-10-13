@@ -1,5 +1,6 @@
 import { stripMarkdownEmphasis } from '@shared/plain-text'
 import type { Message } from '@shared/types'
+import { t } from '../i18n'
 import { CorrectionCard } from './CorrectionCard'
 import { VocabChips } from './VocabChips'
 
@@ -32,17 +33,19 @@ export function MessageBubble({
         <VocabChips vocabulary={message.structured.vocabulary} />
       ) : null}
       <div className="text-[11px] text-fg-3 flex gap-2">
-        {isUser && message.fromAsr && <span>🎙 语音输入</span>}
-        {message.status === 'stopped' && <span>已停止</span>}
-        {message.status === 'error' && <span className="text-bad">发送失败</span>}
+        {isUser && message.fromAsr && <span>{t('chat.message.voiceInput')}</span>}
+        {message.status === 'stopped' && <span>{t('chat.message.stopped')}</span>}
+        {message.status === 'error' && (
+          <span className="text-bad">{t('chat.message.sendFailed')}</span>
+        )}
         {!isUser && message.status === 'done' && onSpeak && (
           <button
             className="text-accent disabled:opacity-40"
             disabled={!canSpeak}
-            title={canSpeak ? undefined : '回复生成中，暂不可朗读'}
+            title={canSpeak ? undefined : t('chat.message.speakDisabled')}
             onClick={() => onSpeak(message.content)}
           >
-            🔈 朗读
+            {t('chat.message.speak')}
           </button>
         )}
       </div>
