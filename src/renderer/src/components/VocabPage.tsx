@@ -107,7 +107,7 @@ export function VocabPage(): React.JSX.Element {
                       key={k}
                       aria-label={t('pages.vocab.setFamiliarity', { word: v.word, n: k })}
                       onClick={() => {
-                        if (v.familiarity !== k) void setFam(v, k)
+                        void setFam(v, v.familiarity === k ? k - 1 : k)
                       }}
                       className="p-[5px]"
                     >
