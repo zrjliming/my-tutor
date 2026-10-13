@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { AICheckResult, ModelProgressEvent, TTSVoice, VoiceStatus } from '@shared/types'
-import { DEFAULT_SETTINGS, TTS_RATE_MAX, TTS_RATE_MIN } from '@shared/types'
+import { DEFAULT_SETTINGS, TTS_RATE_MAX, TTS_RATE_MIN, UI_LANGUAGES } from '@shared/types'
+import type { UiLanguage } from '@shared/types'
 import { api } from '../api'
+import { LANGUAGE_NAMES, setLang, t } from '../i18n'
 import { useChat } from '../store/ChatStore'
 
 function Toggle({
@@ -28,7 +30,7 @@ function Toggle({
       </span>
       <span>
         {label}
-        {on ? '开' : '关'}
+        {on ? t('settings.on') : t('settings.off')}
       </span>
     </button>
   )
@@ -62,7 +64,7 @@ export function SettingsPage(): React.JSX.Element {
       else {
         setProgress(null)
         if (e.type === 'error') setVoiceError(e.message)
-        if (e.type === 'cancelled') setVoiceError('已取消下载')
+        if (e.type === 'cancelled') setVoiceError(t('settings.downloadCancelled'))
         void refreshVoice()
       }
     })
@@ -89,10 +91,14 @@ export function SettingsPage(): React.JSX.Element {
     try {
       await patchSettings({ whisperBinaryPath: v })
     } catch (e) {
-      setVoiceError(`保存失败：${String((e as Error)?.message ?? e)}`)
+      setVoiceError(t('settings.saveFailed', { message: String((e as Error)?.message ?? e) }))
       return
     }
     await refreshVoice()
+  }
+  const changeLanguage = async (uiLanguage: UiLanguage): Promise<void> => {
+    await patchSettings({ uiLanguage })
+    setLang(uiLanguage)
   }
   const mb = (n: number): string => `${(n / 1024 / 1024).toFixed(0)} MB`
   const card = 'border border-line rounded-lg px-4 py-3.5 flex flex-col gap-2'
@@ -103,20 +109,40 @@ export function SettingsPage(): React.JSX.Element {
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
       <div className="px-4 pt-10 pb-3 border-b border-line">
-        <h2 className="text-[15px] font-semibold">设置</h2>
+        <h2 className="text-[15px] font-semibold">{t('settings.title')}</h2>
       </div>
       <div className="flex-1 overflow-auto p-4 flex flex-col gap-3.5 max-w-[720px]">
         <section className={card}>
-          <h3 className="text-sm font-semibold">Claude 连接</h3>
           <div className={kv}>
-            <span className={k}>模型</span>
+            {/* 固定双语，界面切到看不懂的语言时也能找到这里 */}
+            <label htmlFor="uiLanguage" className={k}>
+              界面语言 / Language
+            </label>
+            <select
+              id="uiLanguage"
+              className={select}
+              value={settings.uiLanguage}
+              onChange={(e) => void changeLanguage(e.target.value as UiLanguage)}
+            >
+              {UI_LANGUAGES.map((l) => (
+                <option key={l} value={l}>
+                  {LANGUAGE_NAMES[l]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
+        <section className={card}>
+          <h3 className="text-sm font-semibold">{t('settings.claude.title')}</h3>
+          <div className={kv}>
+            <span className={k}>{t('settings.claude.model')}</span>
             <select
               id="model"
               className={select}
               value={settings.model}
               onChange={(e) => void patchSettings({ model: e.target.value })}
             >
-              <option value="">账号默认</option>
+              <option value="">{t('settings.claude.accountDefault')}</option>
               <option value="sonnet">sonnet</option>
               <option value="opus">opus</option>
             </select>
@@ -127,23 +153,28 @@ export function SettingsPage(): React.JSX.Element {
                 onClick={() => void runCheck()}
                 disabled={check === 'checking'}
               >
-                检测连接
+                {t('settings.claude.check')}
               </button>
-              {check === 'checking' && <span className="text-fg-3 text-xs">检测中…</span>}
+              {check === 'checking' && (
+                <span className="text-fg-3 text-xs">{t('settings.claude.checking')}</span>
+              )}
               {check && check !== 'checking' && (
                 <span className={`text-xs ${check.ok ? 'text-good' : 'text-bad'}`}>
                   {check.ok
-                    ? `连接正常 · ${check.model ?? ''} · ${check.durationMs ?? 0} ms`
-                    : `失败：${check.message}`}
+                    ? t('settings.claude.ok', {
+                        model: check.model ?? '',
+                        ms: check.durationMs ?? 0
+                      })
+                    : t('settings.claude.failed', { message: check.message ?? '' })}
                 </span>
               )}
             </span>
           </div>
         </section>
         <section className={card}>
-          <h3 className="text-sm font-semibold">学习</h3>
+          <h3 className="text-sm font-semibold">{t('settings.learning.title')}</h3>
           <div className={kv}>
-            <span className={k}>难度</span>
+            <span className={k}>{t('settings.learning.difficulty')}</span>
             <select
               id="difficulty"
               className={select}
@@ -152,90 +183,94 @@ export function SettingsPage(): React.JSX.Element {
                 void patchSettings({ difficulty: e.target.value as typeof settings.difficulty })
               }
             >
-              <option value="beginner">初级</option>
-              <option value="intermediate">中级</option>
-              <option value="advanced">高级</option>
+              <option value="beginner">{t('settings.learning.beginner')}</option>
+              <option value="intermediate">{t('settings.learning.intermediate')}</option>
+              <option value="advanced">{t('settings.learning.advanced')}</option>
             </select>
-            <span className={k}>中文解释</span>
+            <span className={k}>{t('settings.learning.chineseExplanations')}</span>
             <Toggle
               on={settings.chineseExplanations}
               onChange={(v) => void patchSettings({ chineseExplanations: v })}
               label=""
             />
           </div>
-          <p className="text-xs text-fg-3 m-0">难度和中文解释对新建的会话生效。</p>
+          <p className="text-xs text-fg-3 m-0">{t('settings.learning.hint')}</p>
         </section>
         <section className={card}>
-          <h3 className="text-sm font-semibold">语音识别（whisper.cpp）</h3>
+          <h3 className="text-sm font-semibold">{t('settings.asr.title')}</h3>
           <div className={kv}>
-            <span className={k}>whisper-cli 路径</span>
+            <span className={k}>{t('settings.asr.binaryPath')}</span>
             <input
               id="whisperBinaryPath"
               key={settings.whisperBinaryPath}
               className={`${select} font-mono text-xs`}
               defaultValue={settings.whisperBinaryPath}
-              placeholder={`留空使用 ${DEFAULT_SETTINGS.whisperBinaryPath}`}
+              placeholder={t('settings.asr.binaryPathPlaceholder', {
+                path: DEFAULT_SETTINGS.whisperBinaryPath
+              })}
               spellCheck={false}
               onBlur={(e) => void saveBinaryPath(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') e.currentTarget.blur()
               }}
             />
-            <span className={k}>二进制</span>
+            <span className={k}>{t('settings.asr.binary')}</span>
             <span>
               {voice === null ? (
-                <span className="text-fg-3">检查中…</span>
+                <span className="text-fg-3">{t('settings.asr.checking')}</span>
               ) : voice.binaryFound ? (
                 <>
-                  <span className="text-good">● 已找到</span>{' '}
+                  <span className="text-good">{t('settings.asr.found')}</span>{' '}
                   <span className="text-fg-3">{voice.binaryPath}</span>
                 </>
               ) : (
                 <>
-                  <span className="text-bad">● 未找到</span>{' '}
+                  <span className="text-bad">{t('settings.asr.notFound')}</span>{' '}
                   <span className="text-fg-3">
-                    {voice.binaryPath}，请在终端运行 brew install whisper.cpp
+                    {t('settings.asr.notFoundHint', { path: voice.binaryPath })}
                   </span>
                 </>
               )}
             </span>
-            <span className={k}>模型</span>
+            <span className={k}>{t('settings.asr.model')}</span>
             <span className="flex items-center gap-2 flex-wrap">
               {voice === null ? (
-                <span className="text-fg-3">检查中…</span>
+                <span className="text-fg-3">{t('settings.asr.checking')}</span>
               ) : voice.modelFound ? (
                 <>
-                  <span className="text-good">● 已下载</span>
+                  <span className="text-good">{t('settings.asr.downloaded')}</span>
                   <span className="text-fg-3">ggml-small.en.bin · {mb(voice.modelBytes ?? 0)}</span>
                   <button
                     className="text-xs px-2 py-1 rounded-md border border-line text-bad"
                     onClick={() => void deleteModel()}
                   >
-                    {confirmDeleteModel ? '确认删除？' : '删除'}
+                    {confirmDeleteModel
+                      ? t('settings.asr.confirmDelete')
+                      : t('settings.asr.delete')}
                   </button>
                 </>
               ) : progress ? (
                 <>
                   <span className="text-fg-2">
-                    下载中 {mb(progress.received)}
+                    {t('settings.asr.downloading', { size: mb(progress.received) })}
                     {progress.total ? ` / ${mb(progress.total)}` : ''}
                   </span>
                   <button
                     className="text-xs px-2 py-1 rounded-md border border-line"
                     onClick={() => void api.voice.cancelDownload()}
                   >
-                    取消
+                    {t('settings.asr.cancel')}
                   </button>
                 </>
               ) : (
                 <>
-                  <span className="text-bad">● 未下载</span>
-                  <span className="text-fg-3">ggml-small.en.bin · 约 466 MB</span>
+                  <span className="text-bad">{t('settings.asr.notDownloaded')}</span>
+                  <span className="text-fg-3">{t('settings.asr.modelSize')}</span>
                   <button
                     className="text-xs px-2 py-1 rounded-md border border-line"
                     onClick={startDownload}
                   >
-                    下载
+                    {t('settings.asr.download')}
                   </button>
                 </>
               )}
@@ -257,12 +292,12 @@ export function SettingsPage(): React.JSX.Element {
             )}
           </div>
           {voiceError && <p className="text-xs text-bad m-0">{voiceError}</p>}
-          <p className="text-xs text-fg-3 m-0">录音只在本机识别，识别完成后立即删除，不会上传。</p>
+          <p className="text-xs text-fg-3 m-0">{t('settings.asr.privacy')}</p>
         </section>
         <section className={card}>
-          <h3 className="text-sm font-semibold">朗读</h3>
+          <h3 className="text-sm font-semibold">{t('settings.tts.title')}</h3>
           <div className={kv}>
-            <span className={k}>音色</span>
+            <span className={k}>{t('settings.tts.voice')}</span>
             <select
               id="voice"
               className={select}
@@ -270,7 +305,9 @@ export function SettingsPage(): React.JSX.Element {
               onChange={(e) => void patchSettings({ voice: e.target.value })}
             >
               {!voices.some((v) => v.id === settings.voice) && (
-                <option value={settings.voice}>{settings.voice}（当前）</option>
+                <option value={settings.voice}>
+                  {t('settings.tts.currentVoice', { voice: settings.voice })}
+                </option>
               )}
               {voices.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -278,7 +315,7 @@ export function SettingsPage(): React.JSX.Element {
                 </option>
               ))}
             </select>
-            <span className={k}>语速</span>
+            <span className={k}>{t('settings.tts.rate')}</span>
             <span className="flex items-center gap-2">
               <input
                 id="rate"
@@ -295,10 +332,10 @@ export function SettingsPage(): React.JSX.Element {
                 className="text-xs px-2 py-1 rounded-md border border-line"
                 onClick={() => void api.voice.speak('This is how I sound at this speed.')}
               >
-                试听
+                {t('settings.tts.preview')}
               </button>
             </span>
-            <span className={k}>自动朗读 AI 回复</span>
+            <span className={k}>{t('settings.tts.autoSpeak')}</span>
             <Toggle
               on={settings.autoSpeak}
               onChange={(v) => void patchSettings({ autoSpeak: v })}
@@ -307,23 +344,19 @@ export function SettingsPage(): React.JSX.Element {
           </div>
         </section>
         <section className={card}>
-          <h3 className="text-sm font-semibold">数据与隐私</h3>
-          <p className="text-[12.5px] text-fg-2 leading-relaxed m-0">
-            你输入的文字、确认后的课文文本会发送给
-            Claude。课文图片只在你点击“识别”时发送一次，之后只使用文本。会话、课程只保存在本机数据库（应用数据目录下的
-            my-tutor.db）。
-          </p>
+          <h3 className="text-sm font-semibold">{t('settings.data.title')}</h3>
+          <p className="text-[12.5px] text-fg-2 leading-relaxed m-0">{t('settings.data.notice')}</p>
           <div className={kv}>
-            <span className={k}>数据目录</span>
+            <span className={k}>{t('settings.data.dir')}</span>
             <span className="flex items-center gap-2 min-w-0">
               <span className="text-fg-3 text-xs font-mono break-all select-text">
-                {dataDir ?? '读取中…'}
+                {dataDir ?? t('settings.data.loading')}
               </span>
               <button
                 className="text-xs px-2 py-1 rounded-md border border-line shrink-0"
                 onClick={() => void api.app.revealDataDir()}
               >
-                在 Finder 中显示
+                {t('settings.data.reveal')}
               </button>
             </span>
           </div>
