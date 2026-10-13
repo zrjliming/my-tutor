@@ -22,6 +22,11 @@ export default {
   'pages.lessons.startQa': 'Start lesson Q&A',
   'pages.lessons.imagesSaved': '{count} original image(s) saved on this device',
   'pages.lessons.dropHint': 'Drop to extract study material',
+  'pages.lessons.audioTitle': 'Lesson audio',
+  'pages.lessons.audioPlayAll': 'Play all',
+  'pages.lessons.audioStop': 'Stop',
+  'pages.lessons.audioPlay': 'Play this sentence',
+  'pages.lessons.audioFailed': "Couldn't play the audio",
 
   'pages.lessonDialog.title': 'Create a lesson',
   'pages.lessonDialog.extract': 'Extract',

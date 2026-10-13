@@ -3,6 +3,7 @@ import type { Lesson } from '@shared/types'
 import { api } from '../api'
 import { t } from '../i18n'
 import { classifyFiles, readTextFiles } from '../lib/dropFiles'
+import { LessonAudio } from './LessonAudio'
 
 interface Props {
   onNewFromText: () => void
@@ -145,6 +146,7 @@ export function LessonsPage({
                 {confirmId === current.id ? t('pages.confirmDelete') : t('pages.delete')}
               </button>
             </div>
+            <LessonAudio key={current.id} lessonId={current.id} />
             <div className="whitespace-pre-wrap leading-relaxed text-sm">{current.body}</div>
             {current.notesZh && <p className="text-zh mt-3 mb-1.5">{current.notesZh}</p>}
             <div className="flex flex-wrap gap-1.5">
