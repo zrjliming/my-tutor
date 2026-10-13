@@ -48,6 +48,16 @@ const success = (structured: unknown, result = ''): SDKMessage =>
     session_id: 's',
     usage: {}
   }) as unknown as SDKMessage
+const successError = (result: string): SDKMessage =>
+  ({
+    type: 'result',
+    subtype: 'success',
+    result,
+    is_error: true,
+    num_turns: 1,
+    session_id: 's',
+    usage: {}
+  }) as unknown as SDKMessage
 const failure = (subtype: string, errors: string[]): SDKMessage =>
   ({ type: 'result', subtype, errors, is_error: true, session_id: 's' }) as unknown as SDKMessage
 const retry = (attempt: number): SDKMessage =>
@@ -187,6 +197,24 @@ describe('ClaudeCliProvider.chat', () => {
     expect(events[0]).toEqual({ type: 'retrying', attempt: 1 })
     expect(events[1]).toMatchObject({ type: 'error', kind: 'not_logged_in' })
   })
+  it('treats a success result with is_error=true as not_logged_in, never as a reply', async () => {
+    const { fn } = fakeQuery(() => [init(), successError('Not logged in · Please run /login')])
+    const p = new ClaudeCliProvider({ sessionsDir: '/tmp/s', queryFn: fn })
+    const events = await collect(
+      p.chat({ conversationId: 'c', firstTurn: false, text: 'x', signal: sig() })
+    )
+    expect(events).toEqual([
+      { type: 'error', kind: 'not_logged_in', message: 'Not logged in · Please run /login' }
+    ])
+  })
+  it('maps other is_error success results to unknown', async () => {
+    const { fn } = fakeQuery(() => [init(), successError('Something went wrong')])
+    const p = new ClaudeCliProvider({ sessionsDir: '/tmp/s', queryFn: fn })
+    const events = await collect(
+      p.chat({ conversationId: 'c', firstTurn: false, text: 'x', signal: sig() })
+    )
+    expect(events).toEqual([{ type: 'error', kind: 'unknown', message: 'Something went wrong' }])
+  })
   it('reports aborted when the signal fires mid-stream', async () => {
     const ac = new AbortController()
     const { fn } = fakeQuery(async () => {
@@ -254,6 +282,13 @@ describe('ClaudeCliProvider.check / deleteSession', () => {
     const p = new ClaudeCliProvider({ sessionsDir: '/tmp/s', queryFn: fn, cliPath: '/x/claude' })
     await p.check()
     expect(captured.options!.pathToClaudeCodeExecutable).toBe('/x/claude')
+  })
+  it('check reports failure when not logged in (success + is_error)', async () => {
+    const { fn } = fakeQuery(() => [init(), successError('Not logged in · Please run /login')])
+    const p = new ClaudeCliProvider({ sessionsDir: '/tmp/s', queryFn: fn })
+    const r = await p.check()
+    expect(r.ok).toBe(false)
+    expect(r.message).toBe('Not logged in · Please run /login')
   })
   it('check reports failure without throwing', async () => {
     const { fn } = fakeQuery(() => [failure('error_during_execution', ['authentication failed'])])

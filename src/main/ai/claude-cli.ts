@@ -138,7 +138,12 @@ export class ClaudeCliProvider implements AIProvider {
           else if (sys.subtype === 'api_retry')
             yield { type: 'retrying', attempt: sys.attempt ?? 1 }
         } else if (m.type === 'result') {
-          if (m.subtype === 'success') {
+          if (m.subtype === 'success' && m.is_error) {
+            // 未登录等情况 SDK 仍报 success，但 is_error=true，result 是错误文本，不能当回复
+            const message = typeof m.result === 'string' && m.result ? m.result : 'is_error'
+            const kind = classifyError(message)
+            yield { type: 'error', kind: kind === 'not_logged_in' ? kind : 'unknown', message }
+          } else if (m.subtype === 'success') {
             const parsed = schema.safeParse(m.structured_output)
             const resultText = typeof m.result === 'string' ? m.result : ''
             let rawText = text || resultText

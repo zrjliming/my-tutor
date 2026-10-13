@@ -67,9 +67,15 @@ app.whenReady().then(() => {
     db = openDatabase(paths.db)
     markOrphanedStreamingAsStopped(db)
   } catch (e) {
-    // 不尝试重建，避免覆盖用户数据
-    dialog.showErrorBox('数据库打开失败', String((e as Error)?.message ?? e))
-    app.quit()
+    // 不尝试重建，避免覆盖用户数据；同步弹框，用户点确定后才退出
+    dialog.showMessageBoxSync({
+      type: 'error',
+      title: '数据库打开失败',
+      message: '数据库打开失败',
+      detail: String((e as Error)?.message ?? e),
+      buttons: ['退出']
+    })
+    app.exit(1)
     return
   }
   const ai: AIProvider =
