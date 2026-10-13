@@ -13,7 +13,11 @@ const FILTERS: Array<{ key: MistakeFilter; label: string }> = [
   { key: 'mastered', label: '已掌握' }
 ]
 
-const md = (iso: string): string => iso.slice(5, 10)
+const pad = (n: number): string => String(n).padStart(2, '0')
+const md = (iso: string): string => {
+  const d = new Date(iso)
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
 
 const load = (f: MistakeFilter): Promise<Mistake[][]> =>
   Promise.all([api.mistakes.list(f), api.mistakes.list('all'), api.mistakes.list('due')])
@@ -34,15 +38,28 @@ export function MistakesPage(): React.JSX.Element {
   const fail = useCallback((e: unknown) => {
     setError(`加载失败：${String((e as Error)?.message ?? e)}`)
   }, [])
+  const opFail = (e: unknown): void => setError(`操作失败：${String((e as Error)?.message ?? e)}`)
   const reload = async (f: MistakeFilter): Promise<void> => load(f).then(apply, fail)
 
   useEffect(() => {
-    void load(filter).then(apply, fail)
+    let cancelled = false
+    void load(filter).then(
+      (r) => !cancelled && apply(r),
+      (e) => !cancelled && fail(e)
+    )
+    return () => {
+      cancelled = true
+    }
   }, [filter, apply, fail])
   useEffect(() => () => clearTimeout(timer.current), [])
 
   const master = async (id: string): Promise<void> => {
-    await api.mistakes.master(id)
+    try {
+      await api.mistakes.master(id)
+    } catch (e) {
+      opFail(e)
+      return
+    }
     await reload(filter)
   }
   const remove = async (id: string): Promise<void> => {
@@ -54,7 +71,12 @@ export function MistakesPage(): React.JSX.Element {
     }
     clearTimeout(timer.current)
     setConfirmId(null)
-    await api.mistakes.delete(id)
+    try {
+      await api.mistakes.delete(id)
+    } catch (e) {
+      opFail(e)
+      return
+    }
     await reload(filter)
   }
 
