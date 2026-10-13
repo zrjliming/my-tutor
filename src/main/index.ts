@@ -105,7 +105,12 @@ app.whenReady().then(() => {
     { chat, lessons, ai, db, voice },
     {
       pickImages,
-      requestMic: () => systemPreferences.askForMediaAccess('microphone'),
+      // 已授权时直接返回：askForMediaAccess 即使已授权也要等好几百毫秒
+      requestMic: async () => {
+        if (process.platform !== 'darwin') return true
+        if (systemPreferences.getMediaAccessStatus('microphone') === 'granted') return true
+        return systemPreferences.askForMediaAccess('microphone')
+      },
       openMicSettings: () =>
         shell.openExternal(
           'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
