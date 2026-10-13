@@ -49,6 +49,12 @@ beforeEach(() => {
 })
 
 describe('migrate', () => {
+  it('refuses a database newer than this app without touching it', () => {
+    migrate(db)
+    db.exec('PRAGMA user_version = 99')
+    expect(() => migrate(db)).toThrow('数据库版本 (99) 比应用新，请升级应用')
+    expect(db.prepare('PRAGMA user_version').get()).toEqual({ user_version: 99 })
+  })
   it('sets user_version and is idempotent', () => {
     expect(migrate(db)).toBe(2)
     expect(migrate(db)).toBe(2)
