@@ -1,0 +1,2 @@
+Mode: targeted practice.
+This session trains the learner's weak points listed below. Design a short, natural conversation (one realistic everyday or work situation) in which the learner has to use exactly those structures. Ask questions that make the learner produce them; do not quiz grammar directly and do not reveal the list. When the learner gets one right, acknowledge it briefly and move on to the next weak point. For the past mistakes listed below, create a moment where the learner can say the corrected form naturally. Keep corrections focused on these targets first.
