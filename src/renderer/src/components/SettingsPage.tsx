@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import type { AICheckResult } from '@shared/types'
+import { useEffect, useState } from 'react'
+import type { AICheckResult, ModelProgressEvent, TTSVoice, VoiceStatus } from '@shared/types'
+import { TTS_RATE_MAX, TTS_RATE_MIN } from '@shared/types'
 import { api } from '../api'
 import { useChat } from '../store/ChatStore'
 
@@ -40,6 +41,47 @@ export function SettingsPage(): React.JSX.Element {
     setCheck('checking')
     setCheck(await api.ai.check())
   }
+  const [voice, setVoice] = useState<VoiceStatus | null>(null)
+  const [voices, setVoices] = useState<TTSVoice[]>([])
+  const [progress, setProgress] = useState<{ received: number; total: number | null } | null>(null)
+  const [voiceError, setVoiceError] = useState<string | null>(null)
+  const [confirmDeleteModel, setConfirmDeleteModel] = useState(false)
+
+  const refreshVoice = async (): Promise<void> => setVoice(await api.voice.status())
+
+  useEffect(() => {
+    void api.voice.status().then(setVoice)
+    void api.voice
+      .listVoices()
+      .then(setVoices)
+      .catch(() => setVoices([]))
+    return api.voice.onModelProgress((e: ModelProgressEvent) => {
+      if (e.type === 'progress') setProgress({ received: e.received, total: e.total })
+      else {
+        setProgress(null)
+        if (e.type === 'error') setVoiceError(`下载失败：${e.message}`)
+        if (e.type === 'cancelled') setVoiceError('已取消下载')
+        void refreshVoice()
+      }
+    })
+  }, [])
+
+  const startDownload = (): void => {
+    setVoiceError(null)
+    setProgress({ received: 0, total: null })
+    void api.voice.downloadModel().then(refreshVoice)
+  }
+  const deleteModel = async (): Promise<void> => {
+    if (!confirmDeleteModel) {
+      setConfirmDeleteModel(true)
+      setTimeout(() => setConfirmDeleteModel(false), 2500)
+      return
+    }
+    setConfirmDeleteModel(false)
+    await api.voice.deleteModel()
+    await refreshVoice()
+  }
+  const mb = (n: number): string => `${(n / 1024 / 1024).toFixed(0)} MB`
   const card = 'border border-line rounded-lg px-4 py-3.5 flex flex-col gap-2'
   const kv = 'grid grid-cols-[auto_1fr] gap-x-3.5 gap-y-1.5 items-center'
   const k = 'text-fg-2 text-[12.5px]'
@@ -111,8 +153,132 @@ export function SettingsPage(): React.JSX.Element {
           <p className="text-xs text-fg-3 m-0">难度和中文解释对新建的会话生效。</p>
         </section>
         <section className={card}>
-          <h3 className="text-sm font-semibold">语音</h3>
-          <p className="text-xs text-fg-3 m-0">语音识别与朗读在阶段 2 提供。</p>
+          <h3 className="text-sm font-semibold">语音识别（whisper.cpp）</h3>
+          <div className={kv}>
+            <span className={k}>二进制</span>
+            <span>
+              {voice === null ? (
+                <span className="text-fg-3">检查中…</span>
+              ) : voice.binaryFound ? (
+                <>
+                  <span className="text-good">● 已找到</span>{' '}
+                  <span className="text-fg-3">{voice.binaryPath}</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-bad">● 未找到</span>{' '}
+                  <span className="text-fg-3">
+                    {voice.binaryPath}，请在终端运行 brew install whisper.cpp
+                  </span>
+                </>
+              )}
+            </span>
+            <span className={k}>模型</span>
+            <span className="flex items-center gap-2 flex-wrap">
+              {voice === null ? (
+                <span className="text-fg-3">检查中…</span>
+              ) : voice.modelFound ? (
+                <>
+                  <span className="text-good">● 已下载</span>
+                  <span className="text-fg-3">ggml-small.en.bin · {mb(voice.modelBytes ?? 0)}</span>
+                  <button
+                    className="text-xs px-2 py-1 rounded-md border border-line text-bad"
+                    onClick={() => void deleteModel()}
+                  >
+                    {confirmDeleteModel ? '确认删除？' : '删除'}
+                  </button>
+                </>
+              ) : progress ? (
+                <>
+                  <span className="text-fg-2">
+                    下载中 {mb(progress.received)}
+                    {progress.total ? ` / ${mb(progress.total)}` : ''}
+                  </span>
+                  <button
+                    className="text-xs px-2 py-1 rounded-md border border-line"
+                    onClick={() => void api.voice.cancelDownload()}
+                  >
+                    取消
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span className="text-bad">● 未下载</span>
+                  <span className="text-fg-3">ggml-small.en.bin · 约 466 MB</span>
+                  <button
+                    className="text-xs px-2 py-1 rounded-md border border-line"
+                    onClick={startDownload}
+                  >
+                    下载
+                  </button>
+                </>
+              )}
+            </span>
+            {progress && (
+              <>
+                <span className={k}></span>
+                <span className="h-1.5 rounded bg-line overflow-hidden block w-full">
+                  <span
+                    className="block h-full bg-accent"
+                    style={{
+                      width: progress.total
+                        ? `${Math.min(100, (progress.received / progress.total) * 100)}%`
+                        : '10%'
+                    }}
+                  />
+                </span>
+              </>
+            )}
+          </div>
+          {voiceError && <p className="text-xs text-bad m-0">{voiceError}</p>}
+          <p className="text-xs text-fg-3 m-0">录音只在本机识别，识别完成后立即删除，不会上传。</p>
+        </section>
+        <section className={card}>
+          <h3 className="text-sm font-semibold">朗读</h3>
+          <div className={kv}>
+            <span className={k}>音色</span>
+            <select
+              id="voice"
+              className={select}
+              value={settings.voice}
+              onChange={(e) => void patchSettings({ voice: e.target.value })}
+            >
+              {!voices.some((v) => v.id === settings.voice) && (
+                <option value={settings.voice}>{settings.voice}（当前）</option>
+              )}
+              {voices.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label}
+                </option>
+              ))}
+            </select>
+            <span className={k}>语速</span>
+            <span className="flex items-center gap-2">
+              <input
+                id="rate"
+                type="range"
+                min={TTS_RATE_MIN}
+                max={TTS_RATE_MAX}
+                step={5}
+                value={settings.rate}
+                onChange={(e) => void patchSettings({ rate: Number(e.target.value) })}
+                className="w-40"
+              />
+              <span className="text-fg-3 text-xs">{settings.rate}</span>
+              <button
+                className="text-xs px-2 py-1 rounded-md border border-line"
+                onClick={() => void api.voice.speak('This is how I sound at this speed.')}
+              >
+                试听
+              </button>
+            </span>
+            <span className={k}>自动朗读 AI 回复</span>
+            <Toggle
+              on={settings.autoSpeak}
+              onChange={(v) => void patchSettings({ autoSpeak: v })}
+              label=""
+            />
+          </div>
         </section>
         <section className={card}>
           <h3 className="text-sm font-semibold">数据与隐私</h3>
