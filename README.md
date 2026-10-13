@@ -1,8 +1,8 @@
 # my-tutor
 
-**AI 英语陪练 · macOS 桌面应用** ｜ [English](#english)
+**AI 英语陪练 · 桌面应用（macOS / Windows）· 可接入多家大模型** ｜ [English](#english)
 
-用你本机已登录的 Claude Code 当英语老师：打字或开口说英语，AI 用简单自然的英文回答，同时给出中文纠错和重点生词；错句、生词、学习画像都存在本地，再按你的薄弱点出针对性练习。
+让大模型当你的英语老师：打字或开口说英语，AI 用简单自然的英文回答，同时给出中文纠错和重点生词；错句、生词、学习画像都存在本地，再按你的薄弱点出针对性练习。
 
 ```
 文字 / 课文图片 → AI 对话（纠错 + 生词）→ 本地朗读 → 本地记录 → 学习画像 → 针对性练习
@@ -19,7 +19,23 @@
 - **学习画像**：离开会话后台生成小结；学习分析页给出水平、薄弱点、建议和统计，一键开始针对性练习。
 - **界面多语言**：中文 / English，可扩展。
 
-## 工作方式
+## 支持的大模型与平台
+
+| AI 后端           | 接入方式                                 | 状态      |
+| ----------------- | ---------------------------------------- | --------- |
+| Claude            | 本机已登录的 Claude Code（无需 API Key） | ✅ 已支持 |
+| ChatGPT（OpenAI） | OpenAI API Key                           | 🚧 规划中 |
+| 通义千问（Qwen）  | 阿里云百炼 API Key（OpenAI 兼容接口）    | 🚧 规划中 |
+| DeepSeek          | DeepSeek API Key（OpenAI 兼容接口）      | 🚧 规划中 |
+
+| 平台                   | 状态                                                          |
+| ---------------------- | ------------------------------------------------------------- |
+| macOS（Apple Silicon） | ✅ 已支持                                                     |
+| Windows                | 🚧 规划中（朗读改用系统语音、whisper.cpp Windows 版、安装包） |
+
+AI 调用都经过统一的 Provider 接口（`src/main/ai/types.ts`），对话、纠错、课文识别、学习画像都依赖同一套结构化输出，新增一个后端只需实现该接口。ChatGPT、千问、DeepSeek 都提供 OpenAI 兼容接口，计划用同一个 Provider 加不同的 Base URL 和 API Key 接入，在设置页切换。
+
+## 工作方式（Claude 后端）
 
 - **不需要 API Key**：通过 [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/overview) 驱动**你本机已登录的 Claude Code**，用的是你自己的 Claude 订阅额度。每次调用都用精简配置（自定义系统提示、不加载用户设置、禁用工具），单轮约几百到两千输入 token。
 - **数据都在本地**：会话、课程、错句、生词、画像存在本机 SQLite（`~/Library/Application Support/my-tutor/my-tutor.db`）。发给 Claude 的只有你输入的文字、确认后的课文文本，以及识别课程时的图片（仅一次）。
@@ -29,8 +45,8 @@
 
 ## 环境要求
 
-- macOS，Apple Silicon（M 系列）。目前只打 arm64 包。
-- [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) 已安装并登录（终端里运行 `claude` 完成登录）。
+- macOS，Apple Silicon（M 系列）。目前只打 arm64 包；Windows 版规划中。
+- [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) 已安装并登录（终端里运行 `claude` 完成登录）。其他大模型接入后改为在设置页填写 API Key。
 - 语音输入（可选）：`brew install whisper.cpp`，模型 `ggml-small.en.bin`（约 466 MB）可在应用设置页一键下载。
 - 开发：Node.js 22+、npm。
 
@@ -65,7 +81,7 @@ docs/         设计文档与实施计划
 
 ## 不在第一版范围内
 
-发音评分、实时全双工语音、跟读 / 复述模式、多用户与云同步、Windows / iOS 版本。
+发音评分、实时全双工语音、跟读 / 复述模式、多用户与云同步、iOS 版本。
 
 ## 许可
 
@@ -77,7 +93,10 @@ docs/         设计文档与实施计划
 
 ## English
 
-**my-tutor** is a macOS desktop app for practicing English with AI. It uses **your locally signed-in Claude Code** (via the Claude Agent SDK) as the tutor, so no API key is needed.
+**my-tutor** is a desktop app for practicing English with an AI tutor.
+
+- **AI backends**: Claude via your locally signed-in Claude Code (supported, no API key). ChatGPT, Qwen and DeepSeek via their OpenAI-compatible APIs (planned).
+- **Platforms**: macOS on Apple Silicon (supported), Windows (planned).
 
 - Type or speak English; replies come with a correction card (original / improved / explanation) and 1–3 key words.
 - Turn textbook photos or text files into lessons and talk about them.
@@ -85,7 +104,7 @@ docs/         设计文档与实施计划
 - Mistake book with spaced review, vocabulary book, session summaries, a learner profile, and targeted practice built from your weak points.
 - All data stays in a local SQLite database. UI in Chinese or English.
 
-Requirements: macOS on Apple Silicon, Claude Code installed and logged in, optional `brew install whisper.cpp` for voice input.
+Requirements today: macOS on Apple Silicon, Claude Code installed and logged in, optional `brew install whisper.cpp` for voice input.
 
 ```bash
 npm install && npm run dev      # or: npm run dev:fake (no Claude calls)
