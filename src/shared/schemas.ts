@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { UI_LANGUAGES } from './types'
 
 export const ModeSchema = z.enum(['free', 'lesson', 'roleplay', 'scenario', 'targeted'])
 export const DifficultySchema = z.enum(['beginner', 'intermediate', 'advanced'])
@@ -80,7 +81,8 @@ export const SettingsPatchSchema = z.object({
   voice: z.string().min(1).max(60).optional(),
   rate: z.number().int().min(100).max(300).optional(),
   whisperBinaryPath: z.string().max(500).optional(),
-  whisperModelPath: z.string().max(500).optional()
+  whisperModelPath: z.string().max(500).optional(),
+  uiLanguage: z.enum(UI_LANGUAGES).optional()
 })
 
 export const TranscribeInputSchema = z.object({

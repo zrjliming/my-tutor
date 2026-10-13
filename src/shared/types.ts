@@ -76,6 +76,10 @@ export interface Lesson {
   assets: LessonAsset[]
 }
 
+/** 界面语言；新增语言时在这里加代码，并在 renderer/src/i18n/locales 下加同名目录 */
+export const UI_LANGUAGES = ['zh', 'en'] as const
+export type UiLanguage = (typeof UI_LANGUAGES)[number]
+
 export interface AppSettings {
   model: string
   difficulty: Difficulty
@@ -86,6 +90,7 @@ export interface AppSettings {
   whisperBinaryPath: string
   whisperModelPath: string
   lastProfileAnalysisAt: string | null
+  uiLanguage: UiLanguage
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -97,7 +102,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   rate: 175,
   whisperBinaryPath: '/opt/homebrew/bin/whisper-cli',
   whisperModelPath: '',
-  lastProfileAnalysisAt: null
+  lastProfileAnalysisAt: null,
+  uiLanguage: 'zh'
 }
 
 export type AIErrorKind =
