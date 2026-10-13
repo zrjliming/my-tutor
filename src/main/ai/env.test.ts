@@ -29,3 +29,14 @@ describe('cleanEnv', () => {
     expect('X' in cleanEnv({ X: undefined })).toBe(false)
   })
 })
+
+describe('cleanEnv USER', () => {
+  it('缺 USER 时补上当前用户名', () => {
+    const out = cleanEnv({ PATH: '/usr/bin', HOME: '/Users/x' })
+    expect(out.USER).toBeTruthy()
+    expect(out.LOGNAME).toBe(out.USER)
+  })
+  it('已有 USER 时保留', () => {
+    expect(cleanEnv({ USER: 'alice' }).USER).toBe('alice')
+  })
+})

@@ -16,6 +16,7 @@ import { encodeWav16, isSilent } from '../lib/wav'
 import { canSpeak } from '../state/machine'
 import { useChat } from '../store/ChatStore'
 import { ConversationList } from './ConversationList'
+import { conversationTitle } from '../lib/conversationTitle'
 import { MessageList } from './MessageList'
 import { InputBar } from './InputBar'
 import { StatePill } from './StatePill'
@@ -287,7 +288,9 @@ export function ChatPage({
         {chat.current ? (
           <>
             <div className="flex items-center gap-2.5 px-4 pt-10 pb-2.5 border-b border-line">
-              <h2 className="text-sm font-semibold flex-1 truncate">{chat.current.title}</h2>
+              <h2 className="text-sm font-semibold flex-1 truncate">
+                {conversationTitle(chat.current)}
+              </h2>
               <span className="text-[11px] px-1.5 rounded-full bg-accent-soft text-accent">
                 {t(`chat.mode.${chat.current.mode}`)}
                 {chat.current.scenario ? ` · ${chat.current.scenario}` : ''}
