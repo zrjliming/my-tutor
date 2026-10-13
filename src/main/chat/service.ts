@@ -22,7 +22,7 @@ import { insertMessage, updateMessage } from '../db/messages'
 import { getLesson } from '../db/lessons'
 import { getSettings } from '../db/settings'
 import { dueMistakes, getMistakesByIds, insertMistake } from '../db/mistakes'
-import { getPracticeSession, insertPracticeSession } from '../db/practice'
+import { getPracticeSession, insertPracticeSession, reopenSession } from '../db/practice'
 import { getProfile } from '../db/profile'
 import { upsertVocab } from '../db/vocabulary'
 import {
@@ -109,6 +109,7 @@ export class ChatService {
     }
     insertMessage(this.deps.db, userMessage)
     bumpTurn(this.deps.db, conversation.id, userMessage.createdAt)
+    reopenSession(this.deps.db, conversation.id)
     const assistantMessageId = this.startTurn(
       conversation,
       userMessage.fromAsr ? `${ASR_NOTE}\n${input.text}` : input.text

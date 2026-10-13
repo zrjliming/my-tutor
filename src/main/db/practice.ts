@@ -56,6 +56,13 @@ export function markSessionEnded(db: Db, conversationId: string, endedAt: string
   ).run(endedAt, conversationId)
 }
 
+/** 已结束的会话被继续：重新打开，下次离开时重新生成小结（reviews_applied 不动，复习不会重复推进） */
+export function reopenSession(db: Db, conversationId: string): void {
+  db.prepare(
+    'UPDATE practice_sessions SET ended_at = NULL, summary_json = NULL WHERE conversation_id = ?'
+  ).run(conversationId)
+}
+
 export function markReviewsApplied(db: Db, conversationId: string): void {
   db.prepare('UPDATE practice_sessions SET reviews_applied = 1 WHERE conversation_id = ?').run(
     conversationId

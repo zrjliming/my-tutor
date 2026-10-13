@@ -55,9 +55,9 @@ export function registerIpc(
   registerHandler(ipc, IPC.conversationsDelete, ConversationIdSchema, (id) =>
     chat.deleteConversation(id)
   )
-  // 不等小结生成：IPC 立即返回，小结在后台跑
+  // 不等小结生成：IPC 立即返回；后台先等正在生成的回复结束，再做小结
   registerHandler(ipc, IPC.conversationsEnd, ConversationIdSchema, (id) => {
-    void learning.endConversation(id)
+    void chat.whenIdle(id).then(() => learning.endConversation(id))
   })
   registerHandler(ipc, IPC.messagesList, ConversationIdSchema, (id) => listMessages(db, id))
   registerHandler(ipc, IPC.chatSend, SendMessageInputSchema, (i) => chat.send(i))

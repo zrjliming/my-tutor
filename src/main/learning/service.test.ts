@@ -110,6 +110,28 @@ describe('LearningService.endConversation', () => {
     expect(text).toContain('Tutor: You went home!')
     expect(text).not.toContain('status')
   })
+  it('a targeted session ended with no user turns leaves its mistakes unchanged', async () => {
+    insertConversation(db, conv({ mode: 'targeted', turnCount: 0 }))
+    insertMistake(
+      db,
+      {
+        conversationId: null,
+        messageId: null,
+        original: 'x',
+        improved: 'y',
+        explanationZh: 'z',
+        category: 'grammar'
+      },
+      addDays(NOW, -3),
+      M
+    )
+    const before = getMistakesByIds(db, [M])[0]
+    insertPracticeSession(db, C, 'targeted', NOW, [M])
+    const ai = new FakeAIProvider({ analyzeResult: summary })
+    await new LearningService({ db, ai, now: () => NOW }).endConversation(C)
+    expect(getMistakesByIds(db, [M])[0]).toEqual(before)
+    expect(getPracticeSession(db, C)).toMatchObject({ endedAt: NOW, reviewsApplied: false })
+  })
   it('does not summarize short sessions and stays silent on failure', async () => {
     insertConversation(db, conv({ turnCount: 2 }))
     insertPracticeSession(db, C, 'free', NOW, [])

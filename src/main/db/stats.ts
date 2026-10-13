@@ -35,7 +35,10 @@ export function learningStats(db: Db, now: string): LearningStats {
     mistakesMastered: count(db, `SELECT COUNT(*) AS n FROM mistakes WHERE status = 'mastered'`),
     vocabTotal: count(db, 'SELECT COUNT(*) AS n FROM vocabulary'),
     vocabByFamiliarity: fam,
-    sessions: count(db, 'SELECT COUNT(*) AS n FROM practice_sessions'),
+    sessions: count(
+      db,
+      'SELECT COUNT(*) AS n FROM practice_sessions p JOIN conversations c ON c.id = p.conversation_id WHERE c.turn_count > 0'
+    ),
     totalTurns: count(db, 'SELECT COALESCE(SUM(turn_count), 0) AS n FROM conversations')
   }
 }

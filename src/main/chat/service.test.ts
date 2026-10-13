@@ -7,7 +7,12 @@ import { FakeAIProvider } from '../ai/fake'
 import { ChatService } from './service'
 import { listMistakes, insertMistake } from '../db/mistakes'
 import { listVocab } from '../db/vocabulary'
-import { getPracticeSession } from '../db/practice'
+import {
+  getPracticeSession,
+  markReviewsApplied,
+  markSessionEnded,
+  saveSessionSummary
+} from '../db/practice'
 import { saveProfile } from '../db/profile'
 import type { ChatIpcEvent, TutorResponse } from '@shared/types'
 
@@ -132,6 +137,21 @@ describe('send', () => {
       'assistant'
     ])
     expect(getConversation(db, conversation.id)?.turnCount).toBe(1)
+  })
+  it('sending into an ended session reopens it and drops the stale summary, keeping reviews_applied', async () => {
+    const svc = mk(new FakeAIProvider())
+    const { conversation } = await svc.createConversation({ mode: 'free' })
+    await svc.whenIdle(conversation.id)
+    markSessionEnded(db, conversation.id, '2026-10-12T01:00:00.000Z')
+    saveSessionSummary(db, conversation.id, { practiced: 'p', performanceZh: 'q', issues: [] })
+    markReviewsApplied(db, conversation.id)
+    await svc.send({ conversationId: conversation.id, text: 'Hi again' })
+    await svc.whenIdle(conversation.id)
+    expect(getPracticeSession(db, conversation.id)).toMatchObject({
+      endedAt: null,
+      summary: null,
+      reviewsApplied: true
+    })
   })
   it('tells the provider an ASR turn came from speech recognition, but stores the raw text', async () => {
     const ai = new FakeAIProvider()

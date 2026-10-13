@@ -298,6 +298,10 @@ describe('practice sessions, profile, stats', () => {
     setVocabFamiliarity(db, a, 5)
     insertPracticeSession(db, C1, 'free', NOW, [])
     insertPracticeSession(db, C2, 'free', NOW, [])
+    // 一轮都没说的会话不算练习次数
+    const C3 = '33333333-3333-4333-8333-333333333333'
+    insertConversation(db, conv(C3, { turnCount: 0 }))
+    insertPracticeSession(db, C3, 'free', NOW, [])
     expect(learningStats(db, NOW)).toEqual({
       mistakesByCategory: { grammar: 1, word_choice: 0, naturalness: 1, other: 0 },
       mistakesPending: 2,

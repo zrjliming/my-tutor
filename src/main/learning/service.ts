@@ -122,9 +122,22 @@ export class LearningService {
       const now = this.now()
       markSessionEnded(this.db, conversationId, now)
       const session = getPracticeSession(this.db, conversationId)
-      if (session && !session.reviewsApplied && session.reviewedMistakeIds.length > 0) {
-        for (const id of session.reviewedMistakeIds) markMistakeReviewed(this.db, id, now)
-        markReviewsApplied(this.db, conversationId)
+      // 一轮都没说就离开：不算复习，错题保持原样
+      if (
+        session &&
+        conv.turnCount > 0 &&
+        !session.reviewsApplied &&
+        session.reviewedMistakeIds.length > 0
+      ) {
+        this.db.exec('BEGIN')
+        try {
+          for (const id of session.reviewedMistakeIds) markMistakeReviewed(this.db, id, now)
+          markReviewsApplied(this.db, conversationId)
+          this.db.exec('COMMIT')
+        } catch (e) {
+          this.db.exec('ROLLBACK')
+          throw e
+        }
       }
       if (session && conv.turnCount >= SUMMARY_MIN_TURNS && !session.summary) {
         await this.summarize(conversationId)
