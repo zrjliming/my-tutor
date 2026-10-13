@@ -4,6 +4,7 @@ import { api } from '../api'
 import { useChat } from '../store/ChatStore'
 import { fileToImageInput, rawToImageInput } from '../lib/image'
 import { Modal } from './Modal'
+import { t } from '../i18n'
 
 type Step = 'input' | 'extracting' | 'edit'
 interface Props {
@@ -125,11 +126,11 @@ export function LessonDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="识别为学习内容"
+      title={t('pages.lessonDialog.title')}
       footer={
         <>
           <button className="px-3 py-1.5 rounded-md border border-line" onClick={onClose}>
-            取消
+            {t('pages.cancel')}
           </button>
           {step === 'input' && (
             <button
@@ -137,7 +138,7 @@ export function LessonDialog({
               disabled={!canExtract}
               onClick={() => void extract()}
             >
-              识别
+              {t('pages.lessonDialog.extract')}
             </button>
           )}
           {step === 'edit' && (
@@ -146,18 +147,24 @@ export function LessonDialog({
               disabled={busy || !draft?.title.trim() || !draft?.body.trim()}
               onClick={() => void save()}
             >
-              {busy ? '保存中…' : '保存并开始课文问答'}
+              {busy ? t('pages.lessonDialog.saving') : t('pages.lessonDialog.saveAndStart')}
             </button>
           )}
         </>
       }
     >
       <div className="flex gap-1.5 text-xs text-fg-3">
-        <span className={step === 'input' ? 'text-accent font-semibold' : ''}>1 预览</span>
+        <span className={step === 'input' ? 'text-accent font-semibold' : ''}>
+          {t('pages.lessonDialog.step1')}
+        </span>
         <span>›</span>
-        <span className={step === 'extracting' ? 'text-accent font-semibold' : ''}>2 识别</span>
+        <span className={step === 'extracting' ? 'text-accent font-semibold' : ''}>
+          {t('pages.lessonDialog.step2')}
+        </span>
         <span>›</span>
-        <span className={step === 'edit' ? 'text-accent font-semibold' : ''}>3 确认</span>
+        <span className={step === 'edit' ? 'text-accent font-semibold' : ''}>
+          {t('pages.lessonDialog.step3')}
+        </span>
       </div>
       {step === 'input' && (
         <>
@@ -185,21 +192,21 @@ export function LessonDialog({
                 className="w-[130px] h-[96px] rounded-lg border border-dashed border-line text-fg-3 text-xs"
                 onClick={() => void addFromDisk()}
               >
-                ＋ 选择图片
+                {t('pages.lessonDialog.pickImage')}
               </button>
             )}
           </div>
           <div className="text-[12.5px] px-2.5 py-2 rounded-md bg-warn-soft text-warn">
-            图片会发送给 Claude 进行识别。识别完成并确认后，之后的练习只使用文本，不再发送图片。
+            {t('pages.lessonDialog.imageNotice')}
           </div>
           <label className="flex flex-col gap-1 text-xs text-fg-2">
-            或者直接粘贴文本（邮件、文档、课文）
+            {t('pages.lessonDialog.pasteLabel')}
             <textarea
               id="lesson-text"
               className={`${field} min-h-[70px]`}
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="粘贴英文文本…"
+              placeholder={t('pages.lessonDialog.pastePlaceholder')}
             />
           </label>
         </>
@@ -207,13 +214,13 @@ export function LessonDialog({
       {step === 'extracting' && (
         <p className="text-fg-2">
           <span className="inline-block w-3.5 h-3.5 mr-1.5 align-[-2px] rounded-full border-2 border-line border-t-accent animate-spin" />
-          正在识别课文、标题和生词…
+          {t('pages.lessonDialog.extracting')}
         </p>
       )}
       {step === 'edit' && draft && (
         <>
           <label className="flex flex-col gap-1 text-xs text-fg-2">
-            标题
+            {t('pages.lessonDialog.fieldTitle')}
             <input
               id="lesson-title"
               className={field}
@@ -222,7 +229,7 @@ export function LessonDialog({
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-fg-2">
-            正文（可修改）
+            {t('pages.lessonDialog.fieldBody')}
             <textarea
               id="lesson-body"
               className={`${field} min-h-[140px] leading-relaxed`}
@@ -231,7 +238,7 @@ export function LessonDialog({
             />
           </label>
           <label className="flex flex-col gap-1 text-xs text-fg-2">
-            中文注释
+            {t('pages.lessonDialog.fieldNotes')}
             <textarea
               id="lesson-notes"
               className={`${field} min-h-[50px]`}
@@ -240,7 +247,7 @@ export function LessonDialog({
             />
           </label>
           <div className="flex flex-col gap-1 text-xs text-fg-2">
-            生词（点一下删除）
+            {t('pages.lessonDialog.fieldVocab')}
             <div className="flex flex-wrap gap-1.5">
               {draft.vocabulary.map((v) => (
                 <button

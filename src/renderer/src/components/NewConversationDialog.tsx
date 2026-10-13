@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
 import type { Lesson, Mode } from '@shared/types'
-import { MODE_LABEL, SCENARIOS } from '@shared/types'
+import { SCENARIOS } from '@shared/types'
 import { api } from '../api'
 import { useChat } from '../store/ChatStore'
 import { Modal } from './Modal'
+import { t } from '../i18n'
 
-const MODES: Array<{ mode: Mode; hint: string; disabled?: boolean }> = [
-  { mode: 'free', hint: '随便聊，AI 顺带纠错' },
-  { mode: 'lesson', hint: '围绕一篇已保存的课程' },
-  { mode: 'roleplay', hint: 'AI 扮演场景中的角色' },
-  { mode: 'scenario', hint: '给你一个目标，完成为止' },
-  { mode: 'targeted', hint: '按薄弱点和到期错句出题' }
+// 名称与说明的文案键：pages.newConv.mode.<mode> / pages.newConv.hint.<mode>
+const MODES: Array<{ mode: Mode; disabled?: boolean }> = [
+  { mode: 'free' },
+  { mode: 'lesson' },
+  { mode: 'roleplay' },
+  { mode: 'scenario' },
+  { mode: 'targeted' }
 ]
 
 interface Props {
@@ -59,7 +61,10 @@ export function NewConversationDialog({
         setLessonId(presetLessonId ?? ls[0]?.id)
       },
       (e) => {
-        if (alive) setError(`课程加载失败：${String((e as Error)?.message ?? e)}`)
+        if (alive)
+          setError(
+            t('pages.newConv.lessonsLoadFailed', { msg: String((e as Error)?.message ?? e) })
+          )
       }
     )
     return () => {
@@ -112,21 +117,21 @@ export function NewConversationDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title="新建会话"
+      title={t('pages.newConv.title')}
       footer={
         <>
           <span className="mr-auto self-center text-xs text-fg-3">
-            模式和课文在会话创建时固定，中途切换请新建会话
+            {t('pages.newConv.fixedNote')}
           </span>
           <button className="px-3 py-1.5 rounded-md border border-line" onClick={onClose}>
-            取消
+            {t('pages.cancel')}
           </button>
           <button
             className="px-3 py-1.5 rounded-md bg-accent text-white disabled:opacity-50"
             disabled={!canStart}
             onClick={() => void start()}
           >
-            {busy ? '创建中…' : '开始'}
+            {busy ? t('pages.newConv.creating') : t('pages.newConv.start')}
           </button>
         </>
       }
@@ -139,18 +144,16 @@ export function NewConversationDialog({
             onClick={() => setMode(m.mode)}
             className={`text-left px-3 py-2.5 rounded-lg border flex flex-col gap-0.5 disabled:opacity-40 ${mode === m.mode ? 'border-accent bg-accent-soft' : 'border-line'}`}
           >
-            <b className="text-[13px]">{MODE_LABEL[m.mode]}</b>
-            <span className="text-[11.5px] text-fg-2">{m.hint}</span>
+            <b className="text-[13px]">{t(`pages.newConv.mode.${m.mode}`)}</b>
+            <span className="text-[11.5px] text-fg-2">{t(`pages.newConv.hint.${m.mode}`)}</span>
           </button>
         ))}
       </div>
       {needsLesson && (
         <div className="flex flex-col gap-2">
-          <span className="text-fg-3 text-xs">选择课程</span>
+          <span className="text-fg-3 text-xs">{t('pages.newConv.pickLesson')}</span>
           {lessons.length === 0 ? (
-            <span className="text-xs text-warn">
-              {'还没有课程，先去"课程"页从图片或文本新建一篇'}
-            </span>
+            <span className="text-xs text-warn">{t('pages.newConv.noLessons')}</span>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {lessons.map((l) => (
@@ -168,11 +171,11 @@ export function NewConversationDialog({
       )}
       {needsScenario && (
         <div className="flex flex-col gap-2">
-          <span className="text-fg-3 text-xs">选择场景</span>
+          <span className="text-fg-3 text-xs">{t('pages.newConv.pickScenario')}</span>
           <div className="flex flex-wrap gap-1.5">
-            {SCENARIOS.map((s) => (
+            {SCENARIOS.map((s, i) => (
               <button key={s} className={chip(s === scenario)} onClick={() => setScenario(s)}>
-                {s}
+                {t(`pages.newConv.scenario.${i}`)}
               </button>
             ))}
           </div>
@@ -181,16 +184,17 @@ export function NewConversationDialog({
       {mode === 'targeted' && targetInfo && (
         <div className="flex flex-col gap-1 text-xs">
           <span className="text-fg-2">
-            本次练习：
-            {targetInfo.weaknesses.length
-              ? targetInfo.weaknesses.slice(0, 3).join('、')
-              : targetInfo.hasProfile
-                ? '学习画像暂无薄弱点'
-                : '还没有学习画像'}{' '}
-            · 到期错句 {Math.min(targetInfo.due, 5)} 条
+            {t('pages.newConv.targetPlan', {
+              focus: targetInfo.weaknesses.length
+                ? targetInfo.weaknesses.slice(0, 3).join(t('pages.newConv.listSep'))
+                : targetInfo.hasProfile
+                  ? t('pages.newConv.noWeakness')
+                  : t('pages.newConv.noProfile'),
+              due: Math.min(targetInfo.due, 5)
+            })}
           </span>
           {targetInfo.weaknesses.length === 0 && targetInfo.due === 0 && (
-            <span className="text-fg-3">没有记录时会做一般性复习</span>
+            <span className="text-fg-3">{t('pages.newConv.generalReview')}</span>
           )}
         </div>
       )}
