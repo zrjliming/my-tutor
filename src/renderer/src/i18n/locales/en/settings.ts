@@ -46,7 +46,7 @@ export default {
   'settings.tts.autoSpeak': 'Read AI replies aloud',
   'settings.data.title': 'Data & privacy',
   'settings.data.notice':
-    'Text you type and confirmed lesson text are sent to Claude. Lesson images are sent only once, when you click "Recognize"; after that only the text is used. Conversations and lessons are stored only in a local database (my-tutor.db in the app data folder).',
+    'Text you type and confirmed lesson text are sent to Claude. Lesson images are sent only once, when you click "Extract"; after that only the text is used. Conversations and lessons are stored only in a local database (my-tutor.db in the app data folder).',
   'settings.data.dir': 'Data folder',
   'settings.data.loading': 'Loading…',
   'settings.data.reveal': 'Show in Finder'
