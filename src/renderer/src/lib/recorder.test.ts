@@ -11,6 +11,7 @@ let gum: ReturnType<typeof deferred<MediaStream>>
 let addModule: ReturnType<typeof deferred<void>>
 let track: { stop: ReturnType<typeof vi.fn>; addEventListener: ReturnType<typeof vi.fn> }
 let contexts: { close: ReturnType<typeof vi.fn> }[]
+let nodes: { port: { onmessage: ((e: { data: Float32Array }) => void) | null } }[]
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -18,6 +19,7 @@ beforeEach(() => {
   addModule = deferred<void>()
   track = { stop: vi.fn(), addEventListener: vi.fn() }
   contexts = []
+  nodes = []
   vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: () => gum.promise } })
   vi.stubGlobal(
     'AudioContext',
@@ -37,6 +39,9 @@ beforeEach(() => {
     'AudioWorkletNode',
     class {
       port = { onmessage: null, close: () => {} }
+      constructor() {
+        nodes.push(this)
+      }
       disconnect = vi.fn()
     }
   )
@@ -89,5 +94,18 @@ describe('Recorder.cancel during start', () => {
     expect(rec.active).toBe(true)
     rec.cancel()
     expect(track.stop).toHaveBeenCalled()
+  })
+})
+
+describe('Recorder.stop', () => {
+  it('never returns more than 60 s of 16 kHz samples', async () => {
+    const rec = new Recorder()
+    const started = rec.start()
+    gum.resolve(stream())
+    addModule.resolve()
+    await started
+    for (let i = 0; i < 61; i++) nodes[0].port.onmessage?.({ data: new Float32Array(16000) })
+    const samples = await rec.stop()
+    expect(samples.length).toBe(60 * 16000)
   })
 })

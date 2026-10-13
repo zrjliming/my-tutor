@@ -133,7 +133,9 @@ export class Recorder {
     const sourceRate = this.context?.sampleRate ?? TARGET_RATE
     const chunks = this.chunks
     this.release()
-    return resampleTo16k(chunks, sourceRate)
+    // 定时器到点前可能多收了一点：截到上限，免得超过 IPC 的音频大小限制
+    const max = MAX_RECORDING_SECONDS * TARGET_RATE
+    return resampleTo16k(chunks, sourceRate).then((s) => (s.length > max ? s.slice(0, max) : s))
   }
 
   private release(): void {

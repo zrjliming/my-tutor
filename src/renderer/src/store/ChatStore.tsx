@@ -16,7 +16,8 @@ import type {
   CreateConversationInput,
   Message,
   SettingsPatch,
-  SpeakOutcome
+  SpeakOutcome,
+  TranscribeOutcome
 } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 import { api } from '../api'
@@ -199,7 +200,15 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
       if (!currentId) return null
       const cid = currentId
       dispatch({ type: 'ui', conversationId: cid, event: 'STOP_RECORDING' })
-      const outcome = await api.voice.transcribe(wav)
+      let outcome: TranscribeOutcome
+      try {
+        outcome = await api.voice.transcribe(wav)
+      } catch (e) {
+        // IPC 被拒（如音频超出大小限制）：当作识别失败，不能卡在 transcribing
+        const raw = String((e as Error)?.message ?? e)
+        const message = raw.replace(/^Error invoking remote method '[^']*': (\w*Error: )?/, '')
+        outcome = { ok: false, kind: 'failed', message }
+      }
       if (outcome.ok) {
         dispatch({
           type: 'asr/transcribed',
