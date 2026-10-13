@@ -98,6 +98,7 @@ CREATE TABLE lesson_sentences (
   lesson_id TEXT NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
   idx INTEGER NOT NULL,
   text TEXT NOT NULL,
+  text_zh TEXT NOT NULL DEFAULT '',
   audio_path TEXT NOT NULL
 );
 CREATE INDEX idx_lesson_sentences_lesson ON lesson_sentences(lesson_id, idx);

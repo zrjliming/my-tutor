@@ -70,6 +70,7 @@ export interface LessonSentence {
   id: string
   idx: number
   text: string
+  textZh: string
 }
 
 export interface Lesson {

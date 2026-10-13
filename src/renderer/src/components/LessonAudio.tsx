@@ -110,7 +110,10 @@ export function LessonAudio({ lessonId }: { lessonId: string }): React.JSX.Eleme
             >
               ▶
             </button>
-            <span>{s.text}</span>
+            <span className="flex flex-col">
+              <span>{s.text}</span>
+              {s.textZh && <span className="text-xs text-fg-3">{s.textZh}</span>}
+            </span>
           </li>
         ))}
       </ol>

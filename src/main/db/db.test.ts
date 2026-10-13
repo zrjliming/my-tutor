@@ -102,12 +102,12 @@ describe('migration 3: lesson_sentences', () => {
     expect(migrate(raw)).toBe(3)
     raw
       .prepare(
-        `INSERT INTO lesson_sentences (id, lesson_id, idx, text, audio_path) VALUES ('s2', 'l1', 2, 'Yes?', '/a/02.mp3'), ('s1', 'l1', 1, 'Excuse me!', '/a/01.mp3')`
+        `INSERT INTO lesson_sentences (id, lesson_id, idx, text, text_zh, audio_path) VALUES ('s2', 'l1', 2, 'Yes?', '什么事？', '/a/02.mp3'), ('s1', 'l1', 1, 'Excuse me!', '对不起', '/a/01.mp3')`
       )
       .run()
     expect(listLessonSentences(raw, 'l1')).toEqual([
-      { id: 's1', idx: 1, text: 'Excuse me!' },
-      { id: 's2', idx: 2, text: 'Yes?' }
+      { id: 's1', idx: 1, text: 'Excuse me!', textZh: '对不起' },
+      { id: 's2', idx: 2, text: 'Yes?', textZh: '什么事？' }
     ])
     expect(getSentenceAudioPath(raw, 's2')).toBe('/a/02.mp3')
     expect(getSentenceAudioPath(raw, 'nope')).toBeUndefined()

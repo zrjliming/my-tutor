@@ -96,7 +96,7 @@ describe('sentence audio', () => {
     db.prepare(
       'INSERT INTO lesson_sentences (id, lesson_id, idx, text, audio_path) VALUES (?, ?, ?, ?, ?)'
     ).run('s1', lesson.id, 1, 'Excuse me!', join(audioDir, '01.mp3'))
-    expect(svc.sentences(lesson.id)).toEqual([{ id: 's1', idx: 1, text: 'Excuse me!' }])
+    expect(svc.sentences(lesson.id)).toEqual([{ id: 's1', idx: 1, text: 'Excuse me!', textZh: '' }])
     expect([...svc.sentenceAudio('s1')]).toEqual([1, 2, 3])
     expect(() => svc.sentenceAudio('nope')).toThrow()
     await svc.delete(lesson.id)

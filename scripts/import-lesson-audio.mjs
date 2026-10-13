@@ -38,7 +38,7 @@ for (const l of db.prepare('SELECT id, title FROM lessons').all()) {
 
 const countSentences = db.prepare('SELECT COUNT(*) AS n FROM lesson_sentences WHERE lesson_id = ?')
 const insert = db.prepare(
-  'INSERT INTO lesson_sentences (id, lesson_id, idx, text, audio_path) VALUES (?, ?, ?, ?, ?)'
+  'INSERT INTO lesson_sentences (id, lesson_id, idx, text, text_zh, audio_path) VALUES (?, ?, ?, ?, ?, ?)'
 )
 const summary = { imported: 0, sentences: 0, skippedExisting: 0, noLesson: [], empty: [] }
 
@@ -79,6 +79,7 @@ for (const folder of folders) {
     const dest = join(audioDir, `${String(it.idx).padStart(2, '0')}.mp3`)
     copyFileSync(it.mp3, dest)
     let text = ''
+    let textZh = ''
     if (existsSync(it.lrc)) {
       const buf = readFileSync(it.lrc)
       let raw
@@ -87,21 +88,29 @@ for (const folder of folders) {
       } catch {
         raw = new TextDecoder('gbk').decode(buf)
       }
-      // 取带时间戳的歌词行，去掉 [..] 标签和「－中文翻译」，只留英文句子
+      // 取带时间戳的歌词行，去掉 [..] 标签；「英文－中文」按全角「－」拆开，没有中文就留空
       const lines = raw.replace(/^\uFEFF/, '').split(/\r?\n/)
       const timed = lines.filter((l) => /^\[\d+:\d+(?:[.:]\d+)?\]/.test(l))
-      text = (timed.length ? timed : lines.filter((l) => l.trim() && !l.startsWith('[')))
-        .map((l) => l.replace(/\[[^\]]*\]/g, '').split('－')[0])
-        .join(' ')
-        .replace(/￡/g, '£')
-        .replace(/\s+/g, ' ')
-        .trim()
+      const parts = (timed.length ? timed : lines.filter((l) => l.trim() && !l.startsWith('[')))
+        .map((l) => l.replace(/\[[^\]]*\]/g, ''))
+        .map((l) => {
+          const k = l.indexOf('－')
+          return k < 0 ? [l, ''] : [l.slice(0, k), l.slice(k + 1)]
+        })
+      ;[text, textZh] = [0, 1].map((i) =>
+        parts
+          .map((p) => p[i])
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      )
+      text = text.replace(/￡/g, '£')
     }
-    return { idx: it.idx, text: text || `#${it.idx}`, dest }
+    return { idx: it.idx, text: text || `#${it.idx}`, textZh, dest }
   })
   db.exec('BEGIN')
   try {
-    for (const r of rows) insert.run(randomUUID(), lesson.id, r.idx, r.text, r.dest)
+    for (const r of rows) insert.run(randomUUID(), lesson.id, r.idx, r.text, r.textZh, r.dest)
     db.exec('COMMIT')
   } catch (e) {
     db.exec('ROLLBACK')

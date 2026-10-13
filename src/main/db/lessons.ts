@@ -88,7 +88,9 @@ export function deleteLesson(db: Db, id: string): void {
 
 export function listLessonSentences(db: Db, lessonId: string): LessonSentence[] {
   return db
-    .prepare('SELECT id, idx, text FROM lesson_sentences WHERE lesson_id = ? ORDER BY idx')
+    .prepare(
+      'SELECT id, idx, text, text_zh AS textZh FROM lesson_sentences WHERE lesson_id = ? ORDER BY idx'
+    )
     .all(lessonId) as unknown as LessonSentence[]
 }
 
