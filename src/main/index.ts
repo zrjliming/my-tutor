@@ -76,12 +76,26 @@ app.whenReady().then(() => {
     process.env.MY_TUTOR_FAKE_AI === '1'
       ? new FakeAIProvider({
           deltaDelayMs: 40,
-          analyzeResult: {
-            title: 'Lesson 5: Nice to meet you',
-            body: 'Good morning.\nGood morning, Mr. Blake.',
-            vocabulary: [{ word: 'morning', meaningZh: '早上', example: 'Good morning.' }],
-            notesZh: '问候与介绍。'
-          }
+          analyzeCandidates: [
+            {
+              title: 'Lesson 5: Nice to meet you',
+              body: 'Good morning.\nGood morning, Mr. Blake.',
+              vocabulary: [{ word: 'morning', meaningZh: '早上', example: 'Good morning.' }],
+              notesZh: '问候与介绍。'
+            },
+            {
+              practiced: '日常对话练习',
+              performanceZh: '整体表达清楚，过去式偶有错误。',
+              issues: ['不规则动词过去式']
+            },
+            {
+              level: 'B1',
+              weaknesses: ['不规则动词过去式', '冠词 a/the', '工作会议表达'],
+              progress: ['句子更完整'],
+              suggestions: ['用针对性练习连做三次过去式对话'],
+              summaryZh: '能应付日常场景，主要问题在过去式和冠词。'
+            }
+          ]
         })
       : new ClaudeCliProvider({ sessionsDir: paths.sessionsDir, cliPath: packagedCliPath() })
   const broadcast = (channel: string, payload: unknown): void => {

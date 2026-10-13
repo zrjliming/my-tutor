@@ -4,6 +4,8 @@ import { AIError, type AIProvider, type AnalyzeRequest, type ChatRequest } from 
 export interface FakeAIOptions {
   reply?: TutorResponse
   analyzeResult?: unknown
+  /** analyze() 返回第一个通过所请求 schema 校验的候选；都不匹配时退回 analyzeResult。 */
+  analyzeCandidates?: unknown[]
   failWith?: AIErrorKind
   deltaDelayMs?: number
   omitStructured?: boolean
@@ -66,6 +68,10 @@ export class FakeAIProvider implements AIProvider {
     this.analyzeCalls.push(req as AnalyzeRequest<unknown>)
     if (this.opts.failWith)
       throw new AIError(this.opts.failWith, `fake failure: ${this.opts.failWith}`)
+    for (const candidate of this.opts.analyzeCandidates ?? []) {
+      const c = req.schema.safeParse(candidate)
+      if (c.success) return c.data
+    }
     const parsed = req.schema.safeParse(this.opts.analyzeResult)
     if (!parsed.success) throw new AIError('unknown', 'fake analyzeResult does not match schema')
     return parsed.data
