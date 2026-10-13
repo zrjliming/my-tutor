@@ -62,12 +62,44 @@ export function ChatPage({
     setTextOwnerId(currentIdForEffect)
     setText('')
   }
+  // 离开的会话若还在录音/识别，取消它并把那个会话的状态拉回 idle。
+  // 副作用（停录音、dispatch 到 store）不能放在渲染期，所以放在这个 effect 里；
+  // 渲染期的重置只管本组件的 text。
+  const voiceConvRef = useRef<string | null>(null)
+  const currentIdRef = useRef(currentIdForEffect)
+  const uiMapRef = useRef(chat.state.ui)
+  const micBusyRef = useRef(false)
   const cancelRecording = recorder.cancel
+  const dispatchUiFor = chat.dispatchUiFor
   useEffect(() => {
+    const prev = voiceConvRef.current
+    if (prev && prev !== currentIdForEffect) {
+      voiceConvRef.current = null
+      const prevUi = uiMapRef.current[prev]
+      if (prevUi === 'recording') {
+        cancelRecording()
+        dispatchUiFor(prev, 'STOP')
+      } else if (prevUi === 'transcribing') {
+        // store 的 transcribe 会把 aborted 映射成该会话的 STOP，且不弹横幅
+        void api.voice.cancelTranscribe()
+      }
+    }
     cancelRecording()
-  }, [currentIdForEffect, cancelRecording])
+  }, [currentIdForEffect, cancelRecording, dispatchUiFor])
 
   const onMic = async (): Promise<void> => {
+    // 60 秒自动停止可能和用户点 ■ 撞在一起：只处理第一次
+    if (micBusyRef.current) return
+    micBusyRef.current = true
+    try {
+      await handleMic()
+    } finally {
+      micBusyRef.current = false
+    }
+  }
+
+  const handleMic = async (): Promise<void> => {
+    const cid = currentIdForEffect
     if (chat.ui === 'recording') {
       const samples = await recorder.stop()
       if (isSilent(samples)) {
@@ -76,7 +108,8 @@ export function ChatPage({
         return
       }
       const result = await chat.transcribe(encodeWav16(samples, 16000))
-      if (result !== null) setText(result)
+      // 识别期间切换了会话，文字不能落到新会话的输入框
+      if (result !== null && currentIdRef.current === cid) setText(result)
       return
     }
     const allowed = await api.voice.requestMic()
@@ -87,13 +120,21 @@ export function ChatPage({
     }
     try {
       await recorder.start()
-      chat.dispatchUi('START_RECORDING')
+      if (!cid || currentIdRef.current !== cid) {
+        // 启动期间切换了会话：丢掉这次录音
+        recorder.cancel()
+        return
+      }
+      voiceConvRef.current = cid
+      chat.dispatchUiFor(cid, 'START_RECORDING')
     } catch (e) {
       chat.showError(`无法开始录音：${String((e as Error)?.message ?? e)}`)
     }
   }
   useLayoutEffect(() => {
     onMicRef.current = onMic
+    currentIdRef.current = currentIdForEffect
+    uiMapRef.current = chat.state.ui
   })
 
   const onStop = (): void => {

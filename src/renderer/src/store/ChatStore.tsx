@@ -32,6 +32,7 @@ export interface ChatContextValue {
   cancel(): Promise<void>
   deleteConversation(id: string): Promise<void>
   dispatchUi(event: UiEvent): void
+  dispatchUiFor(conversationId: string, event: UiEvent): void
   clearError(): void
   asrDraft: { confidence: number } | null
   transcribe(wav: Uint8Array): Promise<string | null>
@@ -126,6 +127,11 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
     [currentId]
   )
 
+  const dispatchUiFor = useCallback(
+    (conversationId: string, event: UiEvent) => dispatch({ type: 'ui', conversationId, event }),
+    []
+  )
+
   const clearError = useCallback(() => {
     if (currentId) dispatch({ type: 'error/cleared', conversationId: currentId })
   }, [currentId])
@@ -190,6 +196,7 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
       cancel,
       deleteConversation,
       dispatchUi,
+      dispatchUiFor,
       clearError,
       asrDraft: currentId ? (state.asrDraft[currentId] ?? null) : null,
       transcribe,
@@ -208,6 +215,7 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
       cancel,
       deleteConversation,
       dispatchUi,
+      dispatchUiFor,
       clearError,
       transcribe,
       cancelTranscribe,
