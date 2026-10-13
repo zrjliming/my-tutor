@@ -38,6 +38,7 @@ export interface ChatContextValue {
   transcribe(wav: Uint8Array): Promise<string | null>
   cancelTranscribe(): Promise<void>
   clearAsrDraft(): void
+  clearAsrDraftFor(conversationId: string): void
   showError(message: string): void
   patchSettings(patch: SettingsPatch): Promise<void>
 }
@@ -174,6 +175,11 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
 
   const cancelTranscribe = useCallback(async () => api.voice.cancelTranscribe(), [])
 
+  const clearAsrDraftFor = useCallback(
+    (conversationId: string) => dispatch({ type: 'asr/cleared', conversationId }),
+    []
+  )
+
   const clearAsrDraft = useCallback(() => {
     if (currentId) dispatch({ type: 'asr/cleared', conversationId: currentId })
   }, [currentId])
@@ -202,6 +208,7 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
       transcribe,
       cancelTranscribe,
       clearAsrDraft,
+      clearAsrDraftFor,
       showError,
       patchSettings
     }),
@@ -220,6 +227,7 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
       transcribe,
       cancelTranscribe,
       clearAsrDraft,
+      clearAsrDraftFor,
       showError,
       patchSettings
     ]

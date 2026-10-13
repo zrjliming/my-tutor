@@ -62,30 +62,34 @@ export function ChatPage({
     setTextOwnerId(currentIdForEffect)
     setText('')
   }
-  // 离开的会话若还在录音/识别，取消它并把那个会话的状态拉回 idle。
-  // 副作用（停录音、dispatch 到 store）不能放在渲染期，所以放在这个 effect 里；
-  // 渲染期的重置只管本组件的 text。
-  const voiceConvRef = useRef<string | null>(null)
+  // 规则：ASR 标记和 awaiting_confirmation 只在它描述的文字还在输入框里时存在。
+  // 输入框文字是本组件的 state，切换会话或页面卸载就没了，所以：
+  // - 进入会话（切换进来或挂载）时清掉该会话的草稿；
+  // - 离开会话（切换走或卸载）时取消它的录音/识别并清掉草稿。
+  // 副作用（停录音、dispatch 到 store）不能放在渲染期，所以放在 effect 里；渲染期的重置只管 text。
   const currentIdRef = useRef(currentIdForEffect)
   const uiMapRef = useRef(chat.state.ui)
   const micBusyRef = useRef(false)
   const cancelRecording = recorder.cancel
   const dispatchUiFor = chat.dispatchUiFor
+  const clearAsrDraftFor = chat.clearAsrDraftFor
   useEffect(() => {
-    const prev = voiceConvRef.current
-    if (prev && prev !== currentIdForEffect) {
-      voiceConvRef.current = null
-      const prevUi = uiMapRef.current[prev]
-      if (prevUi === 'recording') {
-        cancelRecording()
-        dispatchUiFor(prev, 'STOP')
-      } else if (prevUi === 'transcribing') {
-        // store 的 transcribe 会把 aborted 映射成该会话的 STOP，且不弹横幅
-        void api.voice.cancelTranscribe()
-      }
+    const id = currentIdForEffect
+    if (!id) return
+    const clearDraft = (): void => {
+      clearAsrDraftFor(id)
+      dispatchUiFor(id, 'INPUT_CLEARED')
     }
-    cancelRecording()
-  }, [currentIdForEffect, cancelRecording, dispatchUiFor])
+    clearDraft()
+    return () => {
+      const ui = uiMapRef.current[id]
+      cancelRecording()
+      if (ui === 'recording') dispatchUiFor(id, 'STOP')
+      // store 的 transcribe 会把 aborted 映射成该会话的 STOP，且不弹横幅
+      else if (ui === 'transcribing') void api.voice.cancelTranscribe()
+      clearDraft()
+    }
+  }, [currentIdForEffect, cancelRecording, dispatchUiFor, clearAsrDraftFor])
 
   const onMic = async (): Promise<void> => {
     // 60 秒自动停止可能和用户点 ■ 撞在一起：只处理第一次
@@ -118,6 +122,7 @@ export function ChatPage({
       setMicDenied(true)
       return
     }
+    setMicDenied(false)
     try {
       await recorder.start()
       if (!cid || currentIdRef.current !== cid) {
@@ -125,7 +130,6 @@ export function ChatPage({
         recorder.cancel()
         return
       }
-      voiceConvRef.current = cid
       chat.dispatchUiFor(cid, 'START_RECORDING')
     } catch (e) {
       chat.showError(`无法开始录音：${String((e as Error)?.message ?? e)}`)
@@ -261,10 +265,7 @@ export function ChatPage({
               micTitle={voiceReady.reason}
               recordingSeconds={chat.ui === 'recording' ? recorder.seconds : null}
               asr={chat.asrDraft}
-              onClearAsr={() => {
-                chat.clearAsrDraft()
-                if (!text) chat.dispatchUi('INPUT_CLEARED')
-              }}
+              onClearAsr={chat.clearAsrDraft}
             />
           </>
         ) : (
