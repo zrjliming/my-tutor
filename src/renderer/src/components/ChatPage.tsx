@@ -10,6 +10,7 @@ import type { AIErrorKind } from '@shared/types'
 import { api } from '../api'
 import { t } from '../i18n'
 import { useRecorder } from '../hooks/useRecorder'
+import { classifyFiles, readTextFiles } from '../lib/dropFiles'
 import { isRecordingCancelled } from '../lib/recorder'
 import { encodeWav16, isSilent } from '../lib/wav'
 import { canSpeak } from '../state/machine'
@@ -39,7 +40,7 @@ export function ChatPage({
   onOpenLessonDialog,
   onNew
 }: {
-  onOpenLessonDialog: (files?: File[]) => void
+  onOpenLessonDialog: (files?: File[], text?: string) => void
   onNew: () => void
 }): React.JSX.Element {
   const chat = useChat()
@@ -189,6 +190,8 @@ export function ChatPage({
   }
   useEffect(() => () => clearTimeout(confirmTimer.current), [])
   const [drag, setDrag] = useState(false)
+  // 没有当前会话时错误横幅不显示，不支持的文件提示退到空态文案里
+  const [dropNote, setDropNote] = useState<string | null>(null)
   const err = chat.current ? chat.state.errors[chat.current.id] : undefined
   const retrying = chat.current ? chat.state.retrying[chat.current.id] : undefined
 
@@ -219,8 +222,19 @@ export function ChatPage({
     e.preventDefault()
     e.stopPropagation()
     setDrag(false)
-    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'))
-    if (files.length) onOpenLessonDialog(files)
+    setDropNote(null)
+    const { images, texts, other } = classifyFiles(e.dataTransfer.files)
+    if (images.length || texts.length) {
+      if (!texts.length) onOpenLessonDialog(images)
+      else
+        void readTextFiles(texts).then(
+          (text) => onOpenLessonDialog(images, text),
+          (err) => chat.showError(String((err as Error)?.message ?? err))
+        )
+    } else if (other.length) {
+      if (chat.current) chat.showError(t('chat.dropUnsupported'))
+      else setDropNote(t('chat.dropUnsupported'))
+    }
   }
   const onPaste = (e: ClipboardEvent): void => {
     const files = Array.from(e.clipboardData.files).filter((f) => f.type.startsWith('image/'))
@@ -340,7 +354,7 @@ export function ChatPage({
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-fg-3">
-            {t('chat.emptyHint')}
+            {dropNote ?? t('chat.emptyHint')}
           </div>
         )}
       </div>

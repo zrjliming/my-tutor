@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react'
 import type { Lesson } from '@shared/types'
 import { api } from '../api'
 import { t } from '../i18n'
+import { classifyFiles, readTextFiles } from '../lib/dropFiles'
 
 interface Props {
   onNewFromText: () => void
   onNewFromImage: () => void
   onStartQa: (lessonId: string) => void
+  onOpenLessonDialog: (files?: File[], text?: string) => void
   refreshKey: number
 }
 
@@ -14,6 +16,7 @@ export function LessonsPage({
   onNewFromText,
   onNewFromImage,
   onStartQa,
+  onOpenLessonDialog,
   refreshKey
 }: Props): React.JSX.Element {
   const [lessons, setLessons] = useState<Lesson[]>([])
@@ -26,6 +29,29 @@ export function LessonsPage({
     setConfirmId(null)
   }
   useEffect(() => () => clearTimeout(confirmTimer.current), [])
+  const [drag, setDrag] = useState(false)
+  const [dropError, setDropError] = useState<string | null>(null)
+  const dropErrorTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => clearTimeout(dropErrorTimer.current), [])
+  const showDropError = (msg: string): void => {
+    clearTimeout(dropErrorTimer.current)
+    setDropError(msg)
+    dropErrorTimer.current = setTimeout(() => setDropError(null), 4000)
+  }
+  const onDrop = (e: DragEvent): void => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDrag(false)
+    const { images, texts, other } = classifyFiles(e.dataTransfer.files)
+    if (images.length || texts.length) {
+      if (!texts.length) onOpenLessonDialog(images)
+      else
+        void readTextFiles(texts).then(
+          (text) => onOpenLessonDialog(images, text),
+          (err) => showDropError(String((err as Error)?.message ?? err))
+        )
+    } else if (other.length) showDropError(t('pages.dropUnsupported'))
+  }
 
   const apply = useCallback((ls: Lesson[]) => {
     setLessons(ls)
@@ -52,7 +78,22 @@ export function LessonsPage({
   const btn = 'text-xs px-2 py-1 rounded-md border border-line'
 
   return (
-    <div className="flex-1 min-w-0 flex flex-col min-h-0">
+    <div
+      className="flex-1 min-w-0 flex flex-col min-h-0 relative"
+      onDragOver={(e) => {
+        e.preventDefault()
+        setDrag(true)
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setDrag(false)
+      }}
+      onDrop={onDrop}
+    >
+      {drag && (
+        <div className="absolute inset-0 z-10 bg-accent-soft border-2 border-dashed border-accent flex items-center justify-center text-accent text-base">
+          {t('pages.lessons.dropHint')}
+        </div>
+      )}
       <div className="flex items-center gap-2.5 px-4 pt-10 pb-3 border-b border-line">
         <h2 className="text-[15px] font-semibold flex-1">{t('pages.lessons.title')}</h2>
         <button className={btn} onClick={onNewFromText}>
@@ -62,6 +103,7 @@ export function LessonsPage({
           {t('pages.lessons.newFromImage')}
         </button>
       </div>
+      {dropError && <div className="px-4 py-1.5 text-xs text-bad bg-bad-soft">{dropError}</div>}
       <div className="flex-1 overflow-auto p-4 grid grid-cols-[260px_1fr] gap-4">
         <div className="flex flex-col gap-1">
           {lessons.map((l) => (

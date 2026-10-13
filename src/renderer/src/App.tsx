@@ -18,11 +18,15 @@ export default function App(): React.JSX.Element {
   useLang()
   const [page, setPage] = useState<Page>('chat')
   const [newOpen, setNewOpen] = useState<{ mode?: Mode; lessonId?: string } | null>(null)
-  const [lessonOpen, setLessonOpen] = useState<{ files?: File[]; raw?: ImageInput[] } | null>(null)
+  const [lessonOpen, setLessonOpen] = useState<{
+    files?: File[]
+    raw?: ImageInput[]
+    text?: string
+  } | null>(null)
   const [lessonsKey, setLessonsKey] = useState(0)
 
   useEffect(() => {
-    // 拖到聊天区以外的文件默认会让窗口打开该文件，这里统一吞掉
+    // 拖到聊天区/课程页/课程弹窗以外的文件默认会让窗口打开该文件，这里统一吞掉
     const block = (e: DragEvent): void => e.preventDefault()
     document.addEventListener('dragover', block)
     document.addEventListener('drop', block)
@@ -36,8 +40,8 @@ export default function App(): React.JSX.Element {
     const raw = await api.image.pick()
     setLessonOpen({ raw })
   }
-  const openLessonDialog = (files?: File[]): void => {
-    if (files?.length) setLessonOpen({ files })
+  const openLessonDialog = (files?: File[], text?: string): void => {
+    if (files?.length || text !== undefined) setLessonOpen({ files, text })
     else void pickAndOpen()
   }
 
@@ -54,6 +58,7 @@ export default function App(): React.JSX.Element {
           {page === 'lessons' && (
             <LessonsPage
               refreshKey={lessonsKey}
+              onOpenLessonDialog={openLessonDialog}
               onNewFromText={() => setLessonOpen({})}
               onNewFromImage={() => void pickAndOpen()}
               onStartQa={(lessonId) => {
@@ -86,6 +91,7 @@ export default function App(): React.JSX.Element {
         onClose={() => setLessonOpen(null)}
         initialFiles={lessonOpen?.files}
         initialRaw={lessonOpen?.raw}
+        initialText={lessonOpen?.text}
         onSaved={() => {
           setLessonsKey((k) => k + 1)
           setPage('chat')

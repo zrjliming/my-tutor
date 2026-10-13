@@ -37,6 +37,7 @@ export default {
     'Microphone access denied. Allow my-tutor in System Settings → Privacy & Security → Microphone.',
   'chat.voice.startFailed': "Couldn't start recording: {message}",
   'chat.dropHint': 'Drop to extract study material',
+  'chat.dropUnsupported': 'Only images and .txt / .md text files are supported',
   'chat.stopSpeaking': 'Stop reading',
   'chat.confirmDelete': 'Confirm delete?',
   'chat.delete': 'Delete',

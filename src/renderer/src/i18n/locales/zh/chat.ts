@@ -34,6 +34,7 @@ export default {
     '麦克风权限被拒绝。请在“系统设置 → 隐私与安全性 → 麦克风”里允许 my-tutor。',
   'chat.voice.startFailed': '无法开始录音：{message}',
   'chat.dropHint': '松开，识别为学习内容',
+  'chat.dropUnsupported': '只支持图片和 .txt / .md 文本文件',
   'chat.stopSpeaking': '停止朗读',
   'chat.confirmDelete': '确认删除？',
   'chat.delete': '删除',
