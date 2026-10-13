@@ -202,6 +202,57 @@ describe('send', () => {
     await svc.whenIdle(conversation.id)
     expect(ai.calls[1]).toMatchObject({ firstTurn: true })
   })
+  it('when the stored session cannot be resumed, retries the turn once as a fresh session with a recap', async () => {
+    const ai = new FakeAIProvider({ reply: DONE_REPLY })
+    const fakeChat = ai.chat.bind(ai)
+    ai.chat = async function* (req) {
+      if (req.firstTurn) return yield* fakeChat(req)
+      ai.calls.push(req)
+      yield {
+        type: 'error',
+        kind: 'unknown',
+        message: `No conversation found with session ID: ${req.conversationId}`
+      }
+    }
+    const svc = mk(ai)
+    const { conversation } = await svc.createConversation({ mode: 'free' })
+    await svc.whenIdle(conversation.id)
+    const { assistantMessageId } = await svc.send({
+      conversationId: conversation.id,
+      text: 'I goed to work'
+    })
+    await svc.whenIdle(conversation.id)
+    expect(ai.calls.map((c) => c.firstTurn)).toEqual([true, false, true])
+    expect(ai.calls[2].systemPrompt).toContain('Mode: free chat')
+    expect(ai.calls[2].text).toMatch(/could not be restored/)
+    expect(ai.calls[2].text).toContain('Tutor: Hello')
+    expect(ai.calls[2].text).not.toContain('Student: I goed to work')
+    expect(ai.calls[2].text.endsWith('\n\nI goed to work')).toBe(true)
+    expect(ai.deleted).toEqual([conversation.id])
+    expect(getConversation(db, conversation.id)?.sessionStarted).toBe(true)
+    expect(
+      listMessages(db, conversation.id).find((m) => m.id === assistantMessageId)
+    ).toMatchObject({ status: 'done', content: 'Hello' })
+    expect(events.filter((e) => e.type === 'error')).toEqual([])
+    expect(listMistakes(db, 'all', '2100-01-01T00:00:00.000Z')).toHaveLength(1)
+  })
+  it('other resume-turn errors are not retried', async () => {
+    const ai = new FakeAIProvider()
+    const fakeChat = ai.chat.bind(ai)
+    ai.chat = async function* (req) {
+      if (req.firstTurn) return yield* fakeChat(req)
+      ai.calls.push(req)
+      yield { type: 'error', kind: 'rate_limited', message: 'rate limit' }
+    }
+    const svc = mk(ai)
+    const { conversation } = await svc.createConversation({ mode: 'free' })
+    await svc.whenIdle(conversation.id)
+    await svc.send({ conversationId: conversation.id, text: 'hi' })
+    await svc.whenIdle(conversation.id)
+    expect(ai.calls).toHaveLength(2)
+    expect(ai.deleted).toEqual([])
+    expect(events.at(-1)).toMatchObject({ type: 'error', kind: 'rate_limited' })
+  })
   it('a stream that ends without done or error is recorded and reported as an error', async () => {
     const svc = mk(new FakeAIProvider({ events: [{ type: 'text_delta', text: 'Hal' }] }))
     const { conversation, assistantMessageId } = await svc.createConversation({ mode: 'free' })
