@@ -44,6 +44,8 @@ export default function App(): React.JSX.Element {
   return (
     <ChatProvider>
       <div className="h-full flex bg-surface text-fg">
+        {/* 标题栏隐藏后窗口只能从显式标记的区域拖动：顶部 40px（各页面都留了 pt-10）整条可拖 */}
+        <div className="fixed top-0 inset-x-0 h-10 z-40 [-webkit-app-region:drag]" />
         <Sidebar page={page} onChange={setPage} />
         <main className="flex-1 min-w-0 flex">
           {page === 'chat' && (
