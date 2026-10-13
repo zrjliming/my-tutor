@@ -219,4 +219,29 @@ describe('chatReducer', () => {
     expect(s.errors.b).toBe('上一轮尚未结束')
     expect(uiOf(s, 'b')).toBe('sending')
   })
+  it('asr/transcribed stores the draft tag per conversation; asr/cleared removes it', () => {
+    let s = withTwoConversations()
+    s = chatReducer(s, { type: 'asr/transcribed', conversationId: 'a', confidence: 0.42 })
+    expect(s.asrDraft.a).toEqual({ confidence: 0.42 })
+    expect(s.asrDraft.b).toBeUndefined()
+    s = chatReducer(s, { type: 'asr/cleared', conversationId: 'a' })
+    expect(s.asrDraft.a).toBeUndefined()
+  })
+  it('message/userSent clears the asr draft of that conversation', () => {
+    let s = withTwoConversations()
+    s = chatReducer(s, { type: 'messages/loaded', conversationId: 'a', messages: [] })
+    s = chatReducer(s, { type: 'asr/transcribed', conversationId: 'a', confidence: 0.9 })
+    const user: Message = {
+      id: 'u1',
+      conversationId: 'a',
+      role: 'user',
+      content: 'hi',
+      structured: null,
+      status: 'done',
+      fromAsr: true,
+      createdAt: ''
+    }
+    s = chatReducer(s, { type: 'message/userSent', userMessage: user, assistantMessageId: 'a1' })
+    expect(s.asrDraft.a).toBeUndefined()
+  })
 })

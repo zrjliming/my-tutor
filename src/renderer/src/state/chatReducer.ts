@@ -8,6 +8,7 @@ export interface ChatState {
   ui: Record<string, UiState>
   errors: Record<string, string | undefined> // 存 AIErrorKind（UI 按 kind 查文案）或直接展示的中文提示
   retrying: Record<string, number | undefined>
+  asrDraft: Record<string, { confidence: number } | undefined>
 }
 
 export type ChatAction =
@@ -21,6 +22,8 @@ export type ChatAction =
   | { type: 'ui'; conversationId: string; event: UiEvent }
   | { type: 'error/cleared'; conversationId: string }
   | { type: 'error/shown'; conversationId: string; message: string }
+  | { type: 'asr/transcribed'; conversationId: string; confidence: number }
+  | { type: 'asr/cleared'; conversationId: string }
 
 export const initialState: ChatState = {
   conversations: [],
@@ -28,7 +31,8 @@ export const initialState: ChatState = {
   messages: {},
   ui: {},
   errors: {},
-  retrying: {}
+  retrying: {},
+  asrDraft: {}
 }
 
 export const uiOf = (state: ChatState, id: string | null): UiState =>
@@ -109,10 +113,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const conversations = state.conversations.filter((c) => c.id !== action.id)
       const messages = { ...state.messages }
       delete messages[action.id]
+      const asrDraft = { ...state.asrDraft }
+      delete asrDraft[action.id]
       return {
         ...state,
         conversations,
         messages,
+        asrDraft,
         currentId: state.currentId === action.id ? (conversations[0]?.id ?? null) : state.currentId
       }
     }
@@ -130,7 +137,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const s: ChatState = {
         ...state,
         messages: { ...state.messages, [id]: list },
-        errors: existing?.status === 'error' ? state.errors : { ...state.errors, [id]: undefined }
+        errors: existing?.status === 'error' ? state.errors : { ...state.errors, [id]: undefined },
+        asrDraft: { ...state.asrDraft, [id]: undefined }
       }
       return sendFor(s, id, existing)
     }
@@ -138,6 +146,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return withUi(state, action.conversationId, action.event)
     case 'error/shown':
       return { ...state, errors: { ...state.errors, [action.conversationId]: action.message } }
+    case 'asr/transcribed':
+      return {
+        ...state,
+        asrDraft: { ...state.asrDraft, [action.conversationId]: { confidence: action.confidence } }
+      }
+    case 'asr/cleared':
+      return { ...state, asrDraft: { ...state.asrDraft, [action.conversationId]: undefined } }
     case 'error/cleared':
       return withUi(
         { ...state, errors: { ...state.errors, [action.conversationId]: undefined } },
