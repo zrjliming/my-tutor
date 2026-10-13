@@ -74,6 +74,10 @@ const api: SpeakMateAPI = {
     stats: () => ipcRenderer.invoke(IPC.learningStats),
     profile: () => ipcRenderer.invoke(IPC.learningProfile),
     analyze: () => ipcRenderer.invoke(IPC.learningAnalyze)
+  },
+  app: {
+    dataDir: () => ipcRenderer.invoke(IPC.appDataDir),
+    revealDataDir: () => ipcRenderer.invoke(IPC.appRevealDataDir)
   }
 }
 

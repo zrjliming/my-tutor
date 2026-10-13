@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AICheckResult, ModelProgressEvent, TTSVoice, VoiceStatus } from '@shared/types'
-import { TTS_RATE_MAX, TTS_RATE_MIN } from '@shared/types'
+import { DEFAULT_SETTINGS, TTS_RATE_MAX, TTS_RATE_MIN } from '@shared/types'
 import { api } from '../api'
 import { useChat } from '../store/ChatStore'
 
@@ -46,10 +46,12 @@ export function SettingsPage(): React.JSX.Element {
   const [progress, setProgress] = useState<{ received: number; total: number | null } | null>(null)
   const [voiceError, setVoiceError] = useState<string | null>(null)
   const [confirmDeleteModel, setConfirmDeleteModel] = useState(false)
+  const [dataDir, setDataDir] = useState<string | null>(null)
 
   const refreshVoice = async (): Promise<void> => setVoice(await api.voice.status())
 
   useEffect(() => {
+    void api.app.dataDir().then(setDataDir)
     void api.voice.status().then(setVoice)
     void api.voice
       .listVoices()
@@ -79,6 +81,12 @@ export function SettingsPage(): React.JSX.Element {
     }
     setConfirmDeleteModel(false)
     await api.voice.deleteModel()
+    await refreshVoice()
+  }
+  const saveBinaryPath = async (value: string): Promise<void> => {
+    const v = value.trim()
+    if (v === settings.whisperBinaryPath) return
+    await patchSettings({ whisperBinaryPath: v })
     await refreshVoice()
   }
   const mb = (n: number): string => `${(n / 1024 / 1024).toFixed(0)} MB`
@@ -155,6 +163,19 @@ export function SettingsPage(): React.JSX.Element {
         <section className={card}>
           <h3 className="text-sm font-semibold">语音识别（whisper.cpp）</h3>
           <div className={kv}>
+            <span className={k}>whisper-cli 路径</span>
+            <input
+              id="whisperBinaryPath"
+              key={settings.whisperBinaryPath}
+              className={`${select} font-mono text-xs`}
+              defaultValue={settings.whisperBinaryPath}
+              placeholder={`留空使用 ${DEFAULT_SETTINGS.whisperBinaryPath}`}
+              spellCheck={false}
+              onBlur={(e) => void saveBinaryPath(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur()
+              }}
+            />
             <span className={k}>二进制</span>
             <span>
               {voice === null ? (
@@ -287,6 +308,20 @@ export function SettingsPage(): React.JSX.Element {
             Claude。课文图片只在你点击“识别”时发送一次，之后只使用文本。会话、课程只保存在本机数据库（应用数据目录下的
             my-tutor.db）。
           </p>
+          <div className={kv}>
+            <span className={k}>数据目录</span>
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="text-fg-3 text-xs font-mono break-all select-text">
+                {dataDir ?? '读取中…'}
+              </span>
+              <button
+                className="text-xs px-2 py-1 rounded-md border border-line shrink-0"
+                onClick={() => void api.app.revealDataDir()}
+              >
+                在 Finder 中显示
+              </button>
+            </span>
+          </div>
         </section>
       </div>
     </div>

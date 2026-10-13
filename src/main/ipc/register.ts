@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { app, shell } from 'electron'
 import { IPC } from '@shared/ipc'
 import {
   ConversationIdSchema,
@@ -110,4 +111,8 @@ export function registerIpc(
   registerVoidHandler(ipc, IPC.learningStats, () => learning.stats())
   registerVoidHandler(ipc, IPC.learningProfile, () => learning.profile())
   registerVoidHandler(ipc, IPC.learningAnalyze, () => learning.analyzeProfile())
+  registerVoidHandler(ipc, IPC.appDataDir, () => app.getPath('userData'))
+  registerVoidHandler(ipc, IPC.appRevealDataDir, async () => {
+    await shell.openPath(app.getPath('userData'))
+  })
 }
