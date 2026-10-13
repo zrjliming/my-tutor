@@ -69,11 +69,11 @@ export function markReviewsApplied(db: Db, conversationId: string): void {
   )
 }
 
+/** 只写给仍处于"已结束"的会话：生成期间用户回来续聊（reopenSession）时丢弃这份过时小结，下次离开重新生成 */
 export function saveSessionSummary(db: Db, conversationId: string, summary: SessionSummary): void {
-  db.prepare('UPDATE practice_sessions SET summary_json = ? WHERE conversation_id = ?').run(
-    JSON.stringify(summary),
-    conversationId
-  )
+  db.prepare(
+    'UPDATE practice_sessions SET summary_json = ? WHERE conversation_id = ? AND ended_at IS NOT NULL'
+  ).run(JSON.stringify(summary), conversationId)
 }
 
 export function sessionsNeedingSummary(db: Db, minTurns: number, limit: number): string[] {
