@@ -6,7 +6,11 @@ import { api } from '../api'
 const fetchAll = (): Promise<[LearningStats, LearnerProfile | null]> =>
   Promise.all([api.learning.stats(), api.learning.profile()])
 
-const fmt = (iso: string): string => `${iso.slice(5, 10)} ${iso.slice(11, 16)}`
+const pad = (n: number): string => String(n).padStart(2, '0')
+const fmt = (iso: string): string => {
+  const d = new Date(iso)
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 export function AnalysisPage({
   onStartTargeted
@@ -109,7 +113,7 @@ export function AnalysisPage({
               </div>
               <h3 className="text-sm font-semibold m-0 mt-2">近期进步</h3>
               {profile.progress.length ? (
-                <ul className="m-0 pl-4 text-sm">
+                <ul className="m-0 pl-4 text-sm list-disc">
                   {profile.progress.map((p) => (
                     <li key={p}>{p}</li>
                   ))}
@@ -120,7 +124,7 @@ export function AnalysisPage({
             </section>
             <section className={card}>
               <h3 className="text-sm font-semibold m-0">建议</h3>
-              <ul className="m-0 pl-4 text-sm">
+              <ul className="m-0 pl-4 text-sm list-disc">
                 {profile.suggestions.map((s) => (
                   <li key={s}>{s}</li>
                 ))}
