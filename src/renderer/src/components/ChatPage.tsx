@@ -10,6 +10,7 @@ import { MODE_LABEL, type AIErrorKind } from '@shared/types'
 import { api } from '../api'
 import { useRecorder } from '../hooks/useRecorder'
 import { encodeWav16, isSilent } from '../lib/wav'
+import { canSpeak } from '../state/machine'
 import { useChat } from '../store/ChatStore'
 import { ConversationList } from './ConversationList'
 import { MessageList } from './MessageList'
@@ -258,7 +259,11 @@ export function ChatPage({
                 </button>
               </div>
             )}
-            <MessageList messages={chat.currentMessages} onSpeak={(t) => void chat.speak(t)} />
+            <MessageList
+              messages={chat.currentMessages}
+              onSpeak={(t) => void chat.speak(t)}
+              canSpeak={canSpeak(chat.ui)}
+            />
             <InputBar
               ui={chat.ui}
               value={text}

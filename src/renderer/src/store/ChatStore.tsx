@@ -21,7 +21,7 @@ import type {
 import { DEFAULT_SETTINGS } from '@shared/types'
 import { api } from '../api'
 import { chatReducer, initialState, uiOf, type ChatState } from '../state/chatReducer'
-import type { UiEvent, UiState } from '../state/machine'
+import { canSpeak, type UiEvent, type UiState } from '../state/machine'
 
 export interface ChatContextValue {
   state: ChatState
@@ -77,8 +77,9 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
     } catch (e) {
       outcome = { ok: false, kind: 'failed', message: String((e as Error)?.message ?? e) }
     }
-    if (latestSpeak.current[cid] === seq)
-      dispatch({ type: 'ui', conversationId: cid, event: 'SPEAK_END' })
+    // 被同一会话的新朗读顶替时，SPEAK_END 和失败横幅都交给新的那次
+    if (latestSpeak.current[cid] !== seq) return
+    dispatch({ type: 'ui', conversationId: cid, event: 'SPEAK_END' })
     if (!outcome.ok)
       dispatch({
         type: 'error/shown',
@@ -240,10 +241,11 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
 
   const speak = useCallback(
     async (text: string) => {
-      if (!currentId || !text.trim()) return
+      // 发送/流式/出错时状态机不接受 SPEAK，此时朗读会没有 speaking 状态和停止按钮
+      if (!currentId || !text.trim() || !canSpeak(uiOf(state, currentId))) return
       await speakFor(currentId, text)
     },
-    [currentId, speakFor]
+    [currentId, speakFor, state]
   )
 
   const stopSpeaking = useCallback(async () => api.voice.stopSpeaking(), [])

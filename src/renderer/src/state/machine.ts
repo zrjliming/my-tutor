@@ -44,4 +44,6 @@ export function transition(state: UiState, event: UiEvent): UiState {
 export const canSend = (s: UiState): boolean =>
   s === 'idle' || s === 'awaiting_confirmation' || s === 'speaking' || s === 'error'
 export const canRecord = canSend
+export const canSpeak = (s: UiState): boolean =>
+  s === 'idle' || s === 'awaiting_confirmation' || s === 'speaking'
 export const isBusy = (s: UiState): boolean => s === 'sending' || s === 'streaming'

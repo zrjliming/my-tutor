@@ -4,10 +4,12 @@ import { VocabChips } from './VocabChips'
 
 export function MessageBubble({
   message,
-  onSpeak
+  onSpeak,
+  canSpeak = true
 }: {
   message: Message
   onSpeak?: (text: string) => void
+  canSpeak?: boolean
 }): React.JSX.Element {
   const isUser = message.role === 'user'
   const streaming = message.status === 'streaming'
@@ -32,7 +34,12 @@ export function MessageBubble({
         {message.status === 'stopped' && <span>已停止</span>}
         {message.status === 'error' && <span className="text-bad">发送失败</span>}
         {!isUser && message.status === 'done' && onSpeak && (
-          <button className="text-accent" onClick={() => onSpeak(message.content)}>
+          <button
+            className="text-accent disabled:opacity-40"
+            disabled={!canSpeak}
+            title={canSpeak ? undefined : '回复生成中，暂不可朗读'}
+            onClick={() => onSpeak(message.content)}
+          >
             🔈 朗读
           </button>
         )}
