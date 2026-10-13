@@ -5,6 +5,7 @@ import { FakeAIProvider } from '../ai/fake'
 import { ChatService } from '../chat/service'
 import { LessonService } from '../lessons/service'
 import { VoiceService } from '../voice/service'
+import { LearningService } from '../learning/service'
 import { getSettings } from '../db/settings'
 import { registerIpc } from './register'
 import type { IpcHandleTarget } from './handle'
@@ -41,16 +42,15 @@ describe('registerIpc', () => {
       getSettings: () => getSettings(db),
       resolveConfig: () => ({ binaryPath: '/nope', modelPath: '/m' })
     })
+    const learning = new LearningService({ db, ai })
     registerIpc(
       ipc,
-      { chat, lessons, ai, db, voice },
+      { chat, lessons, ai, db, voice, learning },
       { pickImages: async () => [], requestMic: async () => true, openMicSettings: async () => {} }
     )
     expect([...handlers.keys()].sort()).toEqual(
       Object.values(IPC)
         .filter((c) => c !== IPC.chatEvent && c !== IPC.voiceModelProgress)
-        // 阶段 3 新增通道暂未注册，阶段 3 Task 6 注册后恢复
-        .filter((c) => c !== IPC.conversationsEnd && !/^(mistakes|vocab|learning):/.test(c))
         .sort()
     )
 
@@ -79,5 +79,19 @@ describe('registerIpc', () => {
       /参数无效/
     )
     await expect(handlers.get(IPC.voiceSpeak)!({}, { text: '' })).rejects.toThrow(/参数无效/)
+    expect(await handlers.get(IPC.mistakesList)!({}, 'all')).toEqual([])
+    await expect(handlers.get(IPC.mistakesList)!({}, 'spelling')).rejects.toThrow(/参数无效/)
+    expect(await handlers.get(IPC.vocabList)!({}, '')).toEqual([])
+    await expect(
+      handlers.get(IPC.vocabSetFamiliarity)!({}, { id: 'nope', familiarity: 1 })
+    ).rejects.toThrow(/参数无效/)
+    expect(await handlers.get(IPC.learningStats)!({})).toMatchObject({
+      sessions: expect.any(Number)
+    })
+    expect(await handlers.get(IPC.learningProfile)!({})).toBeNull()
+    expect(await handlers.get(IPC.learningAnalyze)!({})).toMatchObject({ ok: false })
+    await expect(
+      handlers.get(IPC.conversationsEnd)!({}, created.conversation.id)
+    ).resolves.toBeUndefined()
   })
 })

@@ -111,6 +111,7 @@ export function summariesSince(db: Db, sinceIso: string): number {
   return row.n
 }
 
+/** 关闭所有未结束的练习记录（包括正在进行的），只能在应用启动时经 sweepPendingSummaries 调用。 */
 export function closeStaleSessions(db: Db): void {
   db.prepare(
     `UPDATE practice_sessions SET ended_at = (SELECT updated_at FROM conversations c WHERE c.id = practice_sessions.conversation_id)

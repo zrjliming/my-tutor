@@ -4,11 +4,15 @@ import {
   ConversationIdSchema,
   CreateConversationInputSchema,
   ExtractLessonInputSchema,
+  IdSchema,
+  MistakeFilterSchema,
   SaveLessonInputSchema,
   SendMessageInputSchema,
   SettingsPatchSchema,
   SpeakInputSchema,
-  TranscribeInputSchema
+  TranscribeInputSchema,
+  VocabFamiliaritySchema,
+  VocabSearchSchema
 } from '@shared/schemas'
 import type { ImageInput } from '@shared/types'
 import type { AIProvider } from '../ai/types'
@@ -16,8 +20,11 @@ import type { ChatService } from '../chat/service'
 import type { LessonService } from '../lessons/service'
 import type { Db } from '../db/index'
 import type { VoiceService } from '../voice/service'
+import type { LearningService } from '../learning/service'
 import { listConversations } from '../db/conversations'
 import { listMessages } from '../db/messages'
+import { deleteMistake, listMistakes, setMistakeMastered } from '../db/mistakes'
+import { deleteVocab, listVocab, setVocabFamiliarity } from '../db/vocabulary'
 import { getSettings, patchSettings } from '../db/settings'
 import { registerHandler, registerVoidHandler, type IpcHandleTarget } from './handle'
 
@@ -27,6 +34,7 @@ export interface Services {
   ai: AIProvider
   db: Db
   voice: VoiceService
+  learning: LearningService
 }
 
 export interface IpcHooks {
@@ -37,7 +45,7 @@ export interface IpcHooks {
 
 export function registerIpc(
   ipc: IpcHandleTarget,
-  { chat, lessons, ai, db, voice }: Services,
+  { chat, lessons, ai, db, voice, learning }: Services,
   hooks: IpcHooks
 ): void {
   registerVoidHandler(ipc, IPC.conversationsList, () => listConversations(db))
@@ -47,6 +55,10 @@ export function registerIpc(
   registerHandler(ipc, IPC.conversationsDelete, ConversationIdSchema, (id) =>
     chat.deleteConversation(id)
   )
+  // 不等小结生成：IPC 立即返回，小结在后台跑
+  registerHandler(ipc, IPC.conversationsEnd, ConversationIdSchema, (id) => {
+    void learning.endConversation(id)
+  })
   registerHandler(ipc, IPC.messagesList, ConversationIdSchema, (id) => listMessages(db, id))
   registerHandler(ipc, IPC.chatSend, SendMessageInputSchema, (i) => chat.send(i))
   registerHandler(ipc, IPC.chatCancel, ConversationIdSchema, (id) => {
@@ -79,4 +91,23 @@ export function registerIpc(
   })
   registerVoidHandler(ipc, IPC.voiceRequestMic, () => hooks.requestMic())
   registerVoidHandler(ipc, IPC.voiceOpenMicSettings, () => hooks.openMicSettings())
+  registerHandler(ipc, IPC.mistakesList, MistakeFilterSchema, (f) =>
+    listMistakes(db, f, new Date().toISOString())
+  )
+  registerHandler(ipc, IPC.mistakesMaster, IdSchema, (id) => {
+    setMistakeMastered(db, id)
+  })
+  registerHandler(ipc, IPC.mistakesDelete, IdSchema, (id) => {
+    deleteMistake(db, id)
+  })
+  registerHandler(ipc, IPC.vocabList, VocabSearchSchema, (q) => listVocab(db, q))
+  registerHandler(ipc, IPC.vocabSetFamiliarity, VocabFamiliaritySchema, (i) => {
+    setVocabFamiliarity(db, i.id, i.familiarity)
+  })
+  registerHandler(ipc, IPC.vocabDelete, IdSchema, (id) => {
+    deleteVocab(db, id)
+  })
+  registerVoidHandler(ipc, IPC.learningStats, () => learning.stats())
+  registerVoidHandler(ipc, IPC.learningProfile, () => learning.profile())
+  registerVoidHandler(ipc, IPC.learningAnalyze, () => learning.analyzeProfile())
 }

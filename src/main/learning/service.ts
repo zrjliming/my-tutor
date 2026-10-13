@@ -162,6 +162,7 @@ export class LearningService {
     }
   }
 
+  /** 只能在应用启动时调用：会关闭所有未结束的练习记录，包括正在进行的那一条。 */
   async sweepPendingSummaries(limit = 3): Promise<void> {
     try {
       closeStaleSessions(this.db)

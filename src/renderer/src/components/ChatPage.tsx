@@ -101,6 +101,8 @@ export function ChatPage({
       // store 的 transcribe 会把 aborted 映射成该会话的 STOP，且不弹横幅
       else if (ui === 'transcribing') void api.voice.cancelTranscribe()
       clearDraft()
+      // 切换会话或离开聊天页都算"离开"：通知主进程结束本次练习（幂等）
+      void api.conversations.end(id)
     }
   }, [currentIdForEffect, cancelRecording, dispatchUiFor, clearAsrDraftFor])
 

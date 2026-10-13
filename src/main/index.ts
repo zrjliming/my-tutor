@@ -13,6 +13,7 @@ import { FakeAIProvider } from './ai/fake'
 import { ClaudeCliProvider } from './ai/claude-cli'
 import { ChatService } from './chat/service'
 import { LessonService } from './lessons/service'
+import { LearningService } from './learning/service'
 import { registerIpc } from './ipc/register'
 import { getSettings } from './db/settings'
 import { WhisperCliService, type WhisperConfig } from './asr/whisper-cli'
@@ -89,6 +90,7 @@ app.whenReady().then(() => {
   const send = (event: ChatIpcEvent): void => broadcast(IPC.chatEvent, event)
   chat = new ChatService({ db, ai, send })
   const lessons = new LessonService({ db, ai, lessonsDir: paths.lessonsDir })
+  const learning = new LearningService({ db, ai })
 
   const resolveConfig = (): WhisperConfig => resolveWhisperConfig(getSettings(db), paths.modelsDir)
   const asr = new WhisperCliService({ getConfig: resolveConfig, tmpDir: paths.tmpDir })
@@ -102,7 +104,7 @@ app.whenReady().then(() => {
 
   registerIpc(
     ipcMain,
-    { chat, lessons, ai, db, voice },
+    { chat, lessons, ai, db, voice, learning },
     {
       pickImages,
       // 已授权时直接返回：askForMediaAccess 即使已授权也要等好几百毫秒
@@ -126,6 +128,13 @@ app.whenReady().then(() => {
     })
   }
   openWindow()
+
+  // 启动后补跑上次没生成的小结，再按需自动更新画像；都在后台，失败静默。
+  // sweepPendingSummaries 会关闭所有未结束的练习记录，只能在这里（启动时）调用
+  void (async () => {
+    await learning.sweepPendingSummaries()
+    await learning.maybeAutoAnalyze()
+  })()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) openWindow()
   })
