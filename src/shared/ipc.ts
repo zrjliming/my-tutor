@@ -1,5 +1,6 @@
 import type {
   AICheckResult,
+  AnalyzeOutcome,
   AppSettings,
   ChatIpcEvent,
   Conversation,
@@ -7,8 +8,12 @@ import type {
   ExtractLessonInput,
   ImageInput,
   Lesson,
+  LearnerProfile,
+  LearningStats,
   LessonExtraction,
   Message,
+  Mistake,
+  MistakeFilter,
   ModelProgressEvent,
   SaveLessonInput,
   SendMessageInput,
@@ -16,6 +21,7 @@ import type {
   SpeakOutcome,
   TranscribeOutcome,
   TTSVoice,
+  VocabEntry,
   VoiceStatus
 } from './types'
 
@@ -46,7 +52,17 @@ export const IPC = {
   voiceDeleteModel: 'voice:deleteModel',
   voiceRequestMic: 'voice:requestMic',
   voiceOpenMicSettings: 'voice:openMicSettings',
-  voiceModelProgress: 'voice:modelProgress'
+  voiceModelProgress: 'voice:modelProgress',
+  conversationsEnd: 'conversations:end',
+  mistakesList: 'mistakes:list',
+  mistakesMaster: 'mistakes:master',
+  mistakesDelete: 'mistakes:delete',
+  vocabList: 'vocab:list',
+  vocabSetFamiliarity: 'vocab:setFamiliarity',
+  vocabDelete: 'vocab:delete',
+  learningStats: 'learning:stats',
+  learningProfile: 'learning:profile',
+  learningAnalyze: 'learning:analyze'
 } as const
 
 export interface SpeakMateAPI {
@@ -56,6 +72,7 @@ export interface SpeakMateAPI {
       input: CreateConversationInput
     ): Promise<{ conversation: Conversation; assistantMessageId: string }>
     delete(id: string): Promise<void>
+    end(id: string): Promise<void>
   }
   messages: {
     list(conversationId: string): Promise<Message[]>
@@ -94,5 +111,20 @@ export interface SpeakMateAPI {
     requestMic(): Promise<boolean>
     openMicSettings(): Promise<void>
     onModelProgress(cb: (event: ModelProgressEvent) => void): () => void
+  }
+  mistakes: {
+    list(filter: MistakeFilter): Promise<Mistake[]>
+    master(id: string): Promise<void>
+    delete(id: string): Promise<void>
+  }
+  vocab: {
+    list(search: string): Promise<VocabEntry[]>
+    setFamiliarity(id: string, familiarity: number): Promise<void>
+    delete(id: string): Promise<void>
+  }
+  learning: {
+    stats(): Promise<LearningStats>
+    profile(): Promise<LearnerProfile | null>
+    analyze(): Promise<AnalyzeOutcome>
   }
 }

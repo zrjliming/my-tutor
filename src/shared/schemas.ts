@@ -92,3 +92,36 @@ export const TranscribeInputSchema = z.object({
 export const SpeakInputSchema = z.object({
   text: z.string().trim().min(1).max(4000)
 })
+
+export const IdSchema = z.string().uuid()
+
+export const SessionSummarySchema = z.object({
+  practiced: z.string().min(1).max(200),
+  performanceZh: z.string().min(1).max(600),
+  issues: z.array(z.string().min(1).max(120)).max(10)
+})
+
+export const LearnerProfileOutputSchema = z.object({
+  level: z.enum(['A1', 'A2', 'B1', 'B2', 'C1']),
+  weaknesses: z.array(z.string().min(1).max(80)).max(8),
+  progress: z.array(z.string().min(1).max(120)).max(8),
+  suggestions: z.array(z.string().min(1).max(160)).max(8),
+  summaryZh: z.string().min(1).max(800)
+})
+
+export const MistakeFilterSchema = z.enum([
+  'all',
+  'due',
+  'mastered',
+  'grammar',
+  'word_choice',
+  'naturalness',
+  'other'
+])
+
+export const VocabSearchSchema = z.string().trim().max(100)
+
+export const VocabFamiliaritySchema = z.object({
+  id: z.string().uuid(),
+  familiarity: z.number().int().min(0).max(5)
+})

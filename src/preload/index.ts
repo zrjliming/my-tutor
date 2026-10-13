@@ -6,7 +6,8 @@ const api: SpeakMateAPI = {
   conversations: {
     list: () => ipcRenderer.invoke(IPC.conversationsList),
     create: (input) => ipcRenderer.invoke(IPC.conversationsCreate, input),
-    delete: (id) => ipcRenderer.invoke(IPC.conversationsDelete, id)
+    delete: (id) => ipcRenderer.invoke(IPC.conversationsDelete, id),
+    end: (id) => ipcRenderer.invoke(IPC.conversationsEnd, id)
   },
   messages: {
     list: (conversationId) => ipcRenderer.invoke(IPC.messagesList, conversationId)
@@ -57,6 +58,22 @@ const api: SpeakMateAPI = {
         ipcRenderer.removeListener(IPC.voiceModelProgress, listener)
       }
     }
+  },
+  mistakes: {
+    list: (filter) => ipcRenderer.invoke(IPC.mistakesList, filter),
+    master: (id) => ipcRenderer.invoke(IPC.mistakesMaster, id),
+    delete: (id) => ipcRenderer.invoke(IPC.mistakesDelete, id)
+  },
+  vocab: {
+    list: (search) => ipcRenderer.invoke(IPC.vocabList, search),
+    setFamiliarity: (id, familiarity) =>
+      ipcRenderer.invoke(IPC.vocabSetFamiliarity, { id, familiarity }),
+    delete: (id) => ipcRenderer.invoke(IPC.vocabDelete, id)
+  },
+  learning: {
+    stats: () => ipcRenderer.invoke(IPC.learningStats),
+    profile: () => ipcRenderer.invoke(IPC.learningProfile),
+    analyze: () => ipcRenderer.invoke(IPC.learningAnalyze)
   }
 }
 
