@@ -59,7 +59,7 @@ export function SettingsPage(): React.JSX.Element {
       if (e.type === 'progress') setProgress({ received: e.received, total: e.total })
       else {
         setProgress(null)
-        if (e.type === 'error') setVoiceError(`下载失败：${e.message}`)
+        if (e.type === 'error') setVoiceError(e.message)
         if (e.type === 'cancelled') setVoiceError('已取消下载')
         void refreshVoice()
       }
