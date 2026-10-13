@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { ModelProgressEvent } from '@shared/types'
@@ -92,6 +100,28 @@ describe('ModelManager.download', () => {
     const p2 = m.download()
     expect(p2).toBe(p1)
     await p1
+  })
+  it('reports error (no uncaught exception) when the .part file cannot be opened', async () => {
+    const roDir = join(dir, 'ro')
+    mkdirSync(roDir)
+    chmodSync(roDir, 0o555)
+    modelPath = join(roDir, 'ggml-small.en.bin')
+    try {
+      const m = mk(okFetch(['abc'], 3))
+      await m.download()
+      expect(events.at(-1)).toMatchObject({ type: 'error' })
+      expect(existsSync(modelPath)).toBe(false)
+      expect(m.status().downloading).toBe(false)
+    } finally {
+      chmodSync(roDir, 0o755)
+    }
+  })
+  it('reports error when the body is shorter than content-length', async () => {
+    const m = mk(okFetch(['abc'], 10))
+    await m.download()
+    expect(events.at(-1)).toEqual({ type: 'error', message: '下载不完整：3/10 字节' })
+    expect(existsSync(modelPath)).toBe(false)
+    expect(existsSync(`${modelPath}.part`)).toBe(false)
   })
   it('delete removes the model and any .part', () => {
     const m = mk(okFetch([]))

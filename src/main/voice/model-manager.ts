@@ -57,6 +57,7 @@ export class ModelManager {
   }
 
   delete(): void {
+    this.cancel()
     const p = this.opts.modelPath()
     rmSync(p, { force: true })
     rmSync(`${p}.part`, { force: true })
@@ -68,21 +69,25 @@ export class ModelManager {
     mkdirSync(dirname(modelPath), { recursive: true })
     rmSync(partPath, { force: true })
     let out: ReturnType<typeof createWriteStream> | null = null
+    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
     try {
       const res = await this.fetchFn(this.url, { signal: ac.signal })
       if (!res.ok || !res.body) throw new Error(`下载失败：HTTP ${res.status}`)
       const totalHeader = res.headers.get('content-length')
       const total = totalHeader ? Number(totalHeader) : null
       out = createWriteStream(partPath)
-      const reader = res.body.getReader()
+      // 错误已经通过 write/end 回调抛给下面的 catch；不挂监听的话 'error' 事件会变成未捕获异常
+      out.on('error', () => {})
+      const body = res.body.getReader()
+      reader = body
       // fetch 实现未必尊重 signal（测试里的假 fetch 就不），这里自己取消读取
-      ac.signal.addEventListener('abort', () => void reader.cancel().catch(() => {}), {
+      ac.signal.addEventListener('abort', () => void body.cancel().catch(() => {}), {
         once: true
       })
       let received = 0
       for (;;) {
         if (ac.signal.aborted) throw new Error('已取消')
-        const { done, value } = await reader.read()
+        const { done, value } = await body.read()
         if (done) break
         received += value.byteLength
         await new Promise<void>((resolve, reject) =>
@@ -93,9 +98,13 @@ export class ModelManager {
       await new Promise<void>((resolve) => out!.end(resolve))
       out = null
       if (ac.signal.aborted) throw new Error('已取消')
+      if (total !== null && Number.isFinite(total) && received !== total) {
+        throw new Error(`下载不完整：${received}/${total} 字节`)
+      }
       renameSync(partPath, modelPath)
       this.opts.onProgress({ type: 'done' })
     } catch (e) {
+      await reader?.cancel().catch(() => {})
       if (out) await new Promise<void>((resolve) => out!.end(resolve))
       rmSync(partPath, { force: true })
       if (ac.signal.aborted) this.opts.onProgress({ type: 'cancelled' })
