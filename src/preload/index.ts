@@ -27,7 +27,9 @@ const api: SpeakMateAPI = {
     list: () => ipcRenderer.invoke(IPC.lessonsList),
     extract: (input) => ipcRenderer.invoke(IPC.lessonsExtract, input),
     save: (input) => ipcRenderer.invoke(IPC.lessonsSave, input),
-    delete: (id) => ipcRenderer.invoke(IPC.lessonsDelete, id)
+    delete: (id) => ipcRenderer.invoke(IPC.lessonsDelete, id),
+    sentences: (lessonId) => ipcRenderer.invoke(IPC.lessonsSentences, lessonId),
+    sentenceAudio: (sentenceId) => ipcRenderer.invoke(IPC.lessonsSentenceAudio, sentenceId)
   },
   settings: {
     get: () => ipcRenderer.invoke(IPC.settingsGet),

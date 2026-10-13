@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { LessonExtractionSchema } from '@shared/schemas'
 import type {
@@ -7,13 +7,22 @@ import type {
   Lesson,
   LessonAsset,
   LessonExtraction,
+  LessonSentence,
   SaveLessonInput
 } from '@shared/types'
 import type { AIProvider } from '../ai/types'
 import type { Db } from '../db/index'
-import { deleteLesson, getLesson, insertLesson, listLessons } from '../db/lessons'
+import {
+  deleteLesson,
+  getLesson,
+  getSentenceAudioPath,
+  insertLesson,
+  listLessonSentences,
+  listLessons
+} from '../db/lessons'
 import { upsertVocab } from '../db/vocabulary'
 import { EXTRACT_LESSON_PROMPT } from '../learning/prompts'
+import { tm } from '../i18n'
 
 export interface LessonServiceDeps {
   db: Db
@@ -103,6 +112,18 @@ export class LessonService {
     return listLessons(this.deps.db)
   }
 
+  sentences(lessonId: string): LessonSentence[] {
+    return listLessonSentences(this.deps.db, lessonId)
+  }
+
+  /** 只读数据库里登记的路径，不接受渲染进程传入的路径 */
+  sentenceAudio(sentenceId: string): Uint8Array {
+    const path = getSentenceAudioPath(this.deps.db, sentenceId)
+    if (!path) throw new Error(tm('句子不存在', 'Sentence not found'))
+    return new Uint8Array(readFileSync(path))
+  }
+
+  // 课文目录（含导入的逐句音频 audio/）整个删掉
   async delete(id: string): Promise<void> {
     deleteLesson(this.deps.db, id)
     rmSync(join(this.deps.lessonsDir, id), { recursive: true, force: true })

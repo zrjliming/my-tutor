@@ -95,6 +95,14 @@ describe('registerIpc', () => {
     })
     expect(await handlers.get(IPC.learningProfile)!({})).toBeNull()
     expect(await handlers.get(IPC.learningAnalyze)!({})).toMatchObject({ ok: false })
+    const lessonId = '00000000-0000-4000-8000-000000000001'
+    expect(await handlers.get(IPC.lessonsSentences)!({}, lessonId)).toEqual([])
+    await expect(handlers.get(IPC.lessonsSentenceAudio)!({}, '/etc/passwd')).rejects.toThrow(
+      /参数无效/
+    )
+    await expect(handlers.get(IPC.lessonsSentenceAudio)!({}, lessonId)).rejects.toThrow(
+      /句子不存在/
+    )
     await expect(
       handlers.get(IPC.conversationsEnd)!({}, created.conversation.id)
     ).resolves.toBeUndefined()

@@ -91,5 +91,15 @@ CREATE TABLE learner_profile (
 );
 INSERT INTO practice_sessions (conversation_id, mode, started_at)
   SELECT id, mode, created_at FROM conversations;
+`,
+  `
+CREATE TABLE lesson_sentences (
+  id TEXT PRIMARY KEY,
+  lesson_id TEXT NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+  idx INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  audio_path TEXT NOT NULL
+);
+CREATE INDEX idx_lesson_sentences_lesson ON lesson_sentences(lesson_id, idx);
 `
 ]
