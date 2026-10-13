@@ -62,7 +62,9 @@ export const IPC = {
   vocabDelete: 'vocab:delete',
   learningStats: 'learning:stats',
   learningProfile: 'learning:profile',
-  learningAnalyze: 'learning:analyze'
+  learningAnalyze: 'learning:analyze',
+  appDataDir: 'app:dataDir',
+  appRevealDataDir: 'app:revealDataDir'
 } as const
 
 export interface SpeakMateAPI {
@@ -126,5 +128,9 @@ export interface SpeakMateAPI {
     stats(): Promise<LearningStats>
     profile(): Promise<LearnerProfile | null>
     analyze(): Promise<AnalyzeOutcome>
+  }
+  app: {
+    dataDir(): Promise<string>
+    revealDataDir(): Promise<void>
   }
 }

@@ -227,6 +227,14 @@ describe('chatReducer', () => {
     s = chatReducer(s, { type: 'asr/cleared', conversationId: 'a' })
     expect(s.asrDraft.a).toBeUndefined()
   })
+  it('asr/transcribed clears the error banner of that conversation only', () => {
+    let s = withTwoConversations()
+    s = chatReducer(s, { type: 'error/shown', conversationId: 'a', message: '麦克风断开' })
+    s = chatReducer(s, { type: 'error/shown', conversationId: 'b', message: 'other' })
+    s = chatReducer(s, { type: 'asr/transcribed', conversationId: 'a', confidence: 0.9 })
+    expect(s.errors.a).toBeUndefined()
+    expect(s.errors.b).toBe('other')
+  })
   it('message/userSent clears the asr draft of that conversation', () => {
     let s = withTwoConversations()
     s = chatReducer(s, { type: 'messages/loaded', conversationId: 'a', messages: [] })
