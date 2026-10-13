@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { openDatabase, type Db } from '../db/index'
 import { FakeAIProvider } from '../ai/fake'
 import { LessonService } from './service'
+import { listVocab } from '../db/vocabulary'
 
 let db: Db
 let dir: string
@@ -41,8 +42,15 @@ describe('extract', () => {
 })
 
 describe('save / list / delete', () => {
+  it('saving a lesson adds its vocabulary to the vocabulary book', () => {
+    const svc = new LessonService({ db, ai: new FakeAIProvider(), lessonsDir: dir })
+    const lesson = svc.save({ ...extraction, source: 'text' })
+    expect(listVocab(db, '')).toMatchObject([
+      { word: 'morning', source: 'lesson', sourceId: lesson.id }
+    ])
+  })
   it('writes image files, stores assets, lists newest first, deletes files', async () => {
-    const ids = ['l1', 'a0', 'a1']
+    const ids = ['l1', 'a0', 'a1', 'v0']
     const svc = new LessonService({
       db,
       ai: new FakeAIProvider(),
