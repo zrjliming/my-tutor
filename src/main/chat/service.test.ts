@@ -115,7 +115,7 @@ describe('send', () => {
       fromAsr: true,
       status: 'done'
     })
-    expect(ai.calls[1]).toMatchObject({ firstTurn: false, text: 'I goed to work' })
+    expect(ai.calls[1]).toMatchObject({ firstTurn: false })
     expect(ai.calls[1].systemPrompt).toBeUndefined()
     expect(listMessages(db, conversation.id).map((m) => m.role)).toEqual([
       'assistant',
@@ -123,6 +123,19 @@ describe('send', () => {
       'assistant'
     ])
     expect(getConversation(db, conversation.id)?.turnCount).toBe(1)
+  })
+  it('tells the provider an ASR turn came from speech recognition, but stores the raw text', async () => {
+    const ai = new FakeAIProvider()
+    const svc = mk(ai)
+    const { conversation } = await svc.createConversation({ mode: 'free' })
+    await svc.whenIdle(conversation.id)
+    await svc.send({ conversationId: conversation.id, text: 'I go to work', fromAsr: true })
+    await svc.whenIdle(conversation.id)
+    expect(ai.calls[1].text).toMatch(/transcribed by speech recognition/)
+    expect(ai.calls[1].text).toMatch(/correction\.uncertain = true/)
+    expect(ai.calls[1].text.endsWith('\nI go to work')).toBe(true)
+    const stored = listMessages(db, conversation.id).find((m) => m.role === 'user')
+    expect(stored?.content).toBe('I go to work')
   })
   it('rejects a second send while a turn is in progress', async () => {
     const svc = mk(new FakeAIProvider({ deltaDelayMs: 20 }))
@@ -145,7 +158,7 @@ describe('send', () => {
     expect(events.at(-1)).toMatchObject({ type: 'error', kind: 'not_logged_in' })
     await svc.send({ conversationId: conversation.id, text: 'retry' })
     await svc.whenIdle(conversation.id)
-    expect(ai.calls[1]).toMatchObject({ firstTurn: true })
+    expect(ai.calls[1]).toMatchObject({ firstTurn: true, text: 'retry' })
     expect(ai.calls[1].systemPrompt).toContain('Learner level')
   })
   it('a stopped opening turn deletes the half-created Claude session so the next send starts fresh', async () => {

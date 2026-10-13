@@ -22,6 +22,10 @@ import { getLesson } from '../db/lessons'
 import { getSettings } from '../db/settings'
 import { buildSystemPrompt, OPENING_INSTRUCTION } from '../learning/prompts'
 
+// 语音识别可能把 goed 悄悄规整成 go/got：告诉 Claude 这一轮来自 ASR，只发给 provider，不入库
+const ASR_NOTE =
+  '(This turn was transcribed by speech recognition, which may silently normalise verb forms or mishear words. If an error might be a transcription artifact, set correction.uncertain = true.)'
+
 export interface ChatServiceDeps {
   db: Db
   ai: AIProvider
@@ -91,7 +95,10 @@ export class ChatService {
     }
     insertMessage(this.deps.db, userMessage)
     bumpTurn(this.deps.db, conversation.id, userMessage.createdAt)
-    const assistantMessageId = this.startTurn(conversation, input.text)
+    const assistantMessageId = this.startTurn(
+      conversation,
+      userMessage.fromAsr ? `${ASR_NOTE}\n${input.text}` : input.text
+    )
     return { userMessage, assistantMessageId }
   }
 
