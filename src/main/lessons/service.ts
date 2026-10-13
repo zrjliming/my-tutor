@@ -77,19 +77,24 @@ export class LessonService {
       assets
     }
     insertLesson(this.deps.db, lesson)
-    for (const v of input.vocabulary) {
-      upsertVocab(
-        this.deps.db,
-        {
-          word: v.word,
-          meaningZh: v.meaningZh,
-          example: v.example,
-          source: 'lesson',
-          sourceId: id
-        },
-        lesson.createdAt,
-        this.uuid()
-      )
+    // 课程已保存：生词写入失败只记日志，不让保存失败
+    try {
+      for (const v of input.vocabulary) {
+        upsertVocab(
+          this.deps.db,
+          {
+            word: v.word,
+            meaningZh: v.meaningZh,
+            example: v.example,
+            source: 'lesson',
+            sourceId: id
+          },
+          lesson.createdAt,
+          this.uuid()
+        )
+      }
+    } catch (e) {
+      console.warn('[my-tutor] lesson vocabulary upsert failed', e)
     }
     return getLesson(this.deps.db, id)!
   }

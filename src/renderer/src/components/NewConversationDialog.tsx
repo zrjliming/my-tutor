@@ -51,10 +51,20 @@ export function NewConversationDialog({
 
   useEffect(() => {
     if (!open) return
-    void api.lessons.list().then((ls) => {
-      setLessons(ls)
-      setLessonId(presetLessonId ?? ls[0]?.id)
-    })
+    let alive = true
+    void api.lessons.list().then(
+      (ls) => {
+        if (!alive) return
+        setLessons(ls)
+        setLessonId(presetLessonId ?? ls[0]?.id)
+      },
+      (e) => {
+        if (alive) setError(`课程加载失败：${String((e as Error)?.message ?? e)}`)
+      }
+    )
+    return () => {
+      alive = false
+    }
   }, [open, presetMode, presetLessonId])
 
   useEffect(() => {

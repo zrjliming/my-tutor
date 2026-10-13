@@ -6,6 +6,7 @@ export function VocabPage(): React.JSX.Element {
   const [query, setQuery] = useState('')
   const [items, setItems] = useState<VocabEntry[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -15,6 +16,8 @@ export function VocabPage(): React.JSX.Element {
       setError(null)
     } catch (e) {
       setError(`加载失败：${String((e as Error)?.message ?? e)}`)
+    } finally {
+      setLoaded(true)
     }
   }, [])
 
@@ -24,8 +27,14 @@ export function VocabPage(): React.JSX.Element {
   }, [query, reload])
   useEffect(() => () => clearTimeout(timer.current), [])
 
+  const opFail = (e: unknown): void => setError(`操作失败：${String((e as Error)?.message ?? e)}`)
   const setFam = async (v: VocabEntry, f: number): Promise<void> => {
-    await api.vocab.setFamiliarity(v.id, f)
+    try {
+      await api.vocab.setFamiliarity(v.id, f)
+    } catch (e) {
+      opFail(e)
+      return
+    }
     await reload(query)
   }
   const remove = async (id: string): Promise<void> => {
@@ -37,7 +46,12 @@ export function VocabPage(): React.JSX.Element {
     }
     clearTimeout(timer.current)
     setConfirmId(null)
-    await api.vocab.delete(id)
+    try {
+      await api.vocab.delete(id)
+    } catch (e) {
+      opFail(e)
+      return
+    }
     await reload(query)
   }
 
@@ -60,7 +74,7 @@ export function VocabPage(): React.JSX.Element {
       </div>
       <div className="flex-1 overflow-auto p-4 flex flex-col gap-2.5">
         {error && <div className="text-xs text-bad">{error}</div>}
-        {items.length === 0 && !error && (
+        {loaded && items.length === 0 && !error && (
           <p className="text-fg-3 text-sm">
             {query.trim()
               ? `没有找到「${query.trim()}」。`

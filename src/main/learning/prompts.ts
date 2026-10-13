@@ -50,7 +50,7 @@ export function formatProfileSummary(p: Pick<LearnerProfile, 'level' | 'weakness
 
 function formatTargeted(t: TargetedMaterial): string {
   if (t.weaknesses.length === 0 && t.mistakes.length === 0) {
-    return 'No recorded weak points yet: run a general review of common everyday structures at the learner level.'
+    return "No recorded weak points yet: run a general review of common everyday structures at the learner's level."
   }
   const parts: string[] = []
   if (t.weaknesses.length)

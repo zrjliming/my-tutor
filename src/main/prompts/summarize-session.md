@@ -8,4 +8,4 @@ Return:
 - `performanceZh`: two to four sentences in Chinese on how the learner did: fluency, accuracy, what went well.
 - `issues`: up to five short Chinese phrases naming recurring language problems seen in this session (e.g. "不规则动词过去式", "冠词 a/the"). Empty if none.
 
-Be specific and honest; base everything on the transcript only.
+Be specific and honest; base everything on the transcript and corrections provided.
