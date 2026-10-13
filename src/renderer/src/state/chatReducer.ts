@@ -147,8 +147,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'error/shown':
       return { ...state, errors: { ...state.errors, [action.conversationId]: action.message } }
     case 'asr/transcribed':
+      // 识别成功：之前的错误横幅（录音中断、识别失败等）已过时
       return {
         ...state,
+        errors: { ...state.errors, [action.conversationId]: undefined },
         asrDraft: { ...state.asrDraft, [action.conversationId]: { confidence: action.confidence } }
       }
     case 'asr/cleared':
