@@ -20,6 +20,7 @@ import { WhisperCliService, type WhisperConfig } from './asr/whisper-cli'
 import { MacSayService } from './tts/mac-say'
 import { ModelManager } from './voice/model-manager'
 import { resolveWhisperConfig, VoiceService } from './voice/service'
+import { setMainLanguage, tm } from './i18n'
 
 function packagedCliPath(): string | undefined {
   if (!app.isPackaged) return undefined
@@ -42,7 +43,7 @@ const MAX_PICK_BYTES = 12 * 1024 * 1024
 async function pickImages(): Promise<ImageInput[]> {
   const r = await dialog.showOpenDialog({
     properties: ['openFile', 'multiSelections'],
-    filters: [{ name: '图片', extensions: ['jpg', 'jpeg', 'png', 'webp'] }]
+    filters: [{ name: tm('图片', 'Images'), extensions: ['jpg', 'jpeg', 'png', 'webp'] }]
   })
   const out: ImageInput[] = []
   for (const p of r.filePaths.slice(0, 4)) {
@@ -63,17 +64,20 @@ app.whenReady().then(() => {
 
   const paths = resolvePaths(app.getPath('userData'))
   let db: Db
+  // 数据库还没打开，先按系统语言；打开后改用设置里的界面语言
+  setMainLanguage(app.getLocale().startsWith('zh') ? 'zh' : 'en')
   try {
     db = openDatabase(paths.db)
     markOrphanedStreamingAsStopped(db)
+    setMainLanguage(getSettings(db).uiLanguage)
   } catch (e) {
     // 不尝试重建，避免覆盖用户数据；同步弹框，用户点确定后才退出
     dialog.showMessageBoxSync({
       type: 'error',
-      title: '数据库打开失败',
-      message: '数据库打开失败',
+      title: tm('数据库打开失败', 'Failed to open database'),
+      message: tm('数据库打开失败', 'Failed to open database'),
       detail: String((e as Error)?.message ?? e),
-      buttons: ['退出']
+      buttons: [tm('退出', 'Quit')]
     })
     app.exit(1)
     return

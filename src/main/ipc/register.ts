@@ -28,6 +28,7 @@ import { deleteMistake, listMistakes, setMistakeMastered } from '../db/mistakes'
 import { deleteVocab, listVocab, setVocabFamiliarity } from '../db/vocabulary'
 import { getSettings, patchSettings } from '../db/settings'
 import { registerHandler, registerVoidHandler, type IpcHandleTarget } from './handle'
+import { setMainLanguage } from '../i18n'
 
 export interface Services {
   chat: ChatService
@@ -72,7 +73,11 @@ export function registerIpc(
   registerHandler(ipc, IPC.lessonsSave, SaveLessonInputSchema, (i) => lessons.save(i))
   registerHandler(ipc, IPC.lessonsDelete, z.string().uuid(), (id) => lessons.delete(id))
   registerVoidHandler(ipc, IPC.settingsGet, () => getSettings(db))
-  registerHandler(ipc, IPC.settingsPatch, SettingsPatchSchema, (p) => patchSettings(db, p))
+  registerHandler(ipc, IPC.settingsPatch, SettingsPatchSchema, (p) => {
+    const settings = patchSettings(db, p)
+    setMainLanguage(settings.uiLanguage)
+    return settings
+  })
   registerVoidHandler(ipc, IPC.aiCheck, () => ai.check())
   registerVoidHandler(ipc, IPC.imagePick, () => hooks.pickImages())
   registerVoidHandler(ipc, IPC.voiceStatus, () => voice.status())

@@ -11,6 +11,7 @@ import { ASRError, type SpeechRecognitionService } from '../asr/types'
 import type { WhisperConfig } from '../asr/whisper-cli'
 import { TTSError, type TTSService } from '../tts/types'
 import type { ModelManager } from './model-manager'
+import { tm } from '../i18n'
 
 export function resolveWhisperConfig(settings: AppSettings, modelsDir: string): WhisperConfig {
   return {
@@ -47,7 +48,12 @@ export class VoiceService {
   }
 
   async transcribe(wav: Uint8Array): Promise<TranscribeOutcome> {
-    if (this.transcribing) return { ok: false, kind: 'failed', message: '上一次识别尚未结束' }
+    if (this.transcribing)
+      return {
+        ok: false,
+        kind: 'failed',
+        message: tm('上一次识别尚未结束', 'The previous transcription is still running')
+      }
     const ac = new AbortController()
     this.transcribing = ac
     try {

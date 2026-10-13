@@ -78,6 +78,11 @@ describe('registerIpc', () => {
     await expect(handlers.get(IPC.voiceTranscribe)!({}, { wav: 'nope' })).rejects.toThrow(
       /参数无效/
     )
+    await handlers.get(IPC.settingsPatch)!({}, { uiLanguage: 'en' })
+    await expect(handlers.get(IPC.voiceTranscribe)!({}, { wav: 'nope' })).rejects.toThrow(
+      /Invalid arguments \(voice:transcribe\)/
+    )
+    await handlers.get(IPC.settingsPatch)!({}, { uiLanguage: 'zh' })
     await expect(handlers.get(IPC.voiceSpeak)!({}, { text: '' })).rejects.toThrow(/参数无效/)
     expect(await handlers.get(IPC.mistakesList)!({}, 'all')).toEqual([])
     await expect(handlers.get(IPC.mistakesList)!({}, 'spelling')).rejects.toThrow(/参数无效/)

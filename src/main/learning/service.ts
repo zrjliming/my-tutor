@@ -27,12 +27,17 @@ import { getSettings, patchSettings } from '../db/settings'
 import { learningStats } from '../db/stats'
 import { ANALYZE_LEARNER_PROMPT, SUMMARIZE_SESSION_PROMPT } from './prompts'
 import { addDays } from './review'
+import { tm } from '../i18n'
 
 export const SUMMARY_MIN_TURNS = 3
 const TRANSCRIPT_LIMIT = 20
 const PROFILE_WINDOW_DAYS = 30
 const AUTO_ANALYZE_INTERVAL_MS = 24 * 60 * 60 * 1000
-const NO_DATA_MESSAGE = '还没有足够的练习数据：先在聊天里练几轮，再来更新分析。'
+const noDataMessage = (): string =>
+  tm(
+    '还没有足够的练习数据：先在聊天里练几轮，再来更新分析。',
+    'Not enough practice data yet. Practice a few rounds in chat, then update the analysis.'
+  )
 
 export interface LearningServiceDeps {
   db: Db
@@ -193,7 +198,7 @@ export class LearningService {
       const mistakes = recentMistakes(this.db, addDays(now, -PROFILE_WINDOW_DAYS))
       const summaries = recentSummaries(this.db, 10).map((s) => s.summary)
       if (mistakes.length === 0 && summaries.length === 0) {
-        return { ok: false, message: NO_DATA_MESSAGE }
+        return { ok: false, message: noDataMessage() }
       }
       const text = buildProfileInput({
         mistakes,
@@ -213,7 +218,7 @@ export class LearningService {
       return { ok: true, profile }
     } catch (e) {
       console.warn('[my-tutor] analyzeProfile failed', e)
-      return { ok: false, message: '分析失败：' + errorMessage(e) }
+      return { ok: false, message: tm('分析失败：', 'Analysis failed: ') + errorMessage(e) }
     }
   }
 

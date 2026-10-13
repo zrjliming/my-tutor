@@ -6,6 +6,7 @@ import type { ASRResult } from '@shared/types'
 import { cleanEnv } from '../ai/env'
 import { ASRError, type SpeechRecognitionService } from './types'
 import { parseWhisperJson } from './whisper-json'
+import { tm } from '../i18n'
 
 export interface WhisperConfig {
   binaryPath: string
@@ -48,13 +49,23 @@ export class WhisperCliService implements SpeechRecognitionService {
   }
 
   async transcribe(wav: Buffer, signal: AbortSignal): Promise<ASRResult> {
-    if (this.busy) throw new ASRError('failed', '上一次识别尚未结束')
+    if (this.busy)
+      throw new ASRError(
+        'failed',
+        tm('上一次识别尚未结束', 'The previous transcription is still running')
+      )
     const cfg = this.opts.getConfig()
     if (!fileExists(cfg.binaryPath))
-      throw new ASRError('binary_missing', `找不到 whisper-cli：${cfg.binaryPath}`)
+      throw new ASRError(
+        'binary_missing',
+        tm(`找不到 whisper-cli：${cfg.binaryPath}`, `whisper-cli not found: ${cfg.binaryPath}`)
+      )
     if (!fileExists(cfg.modelPath))
-      throw new ASRError('model_missing', `找不到模型文件：${cfg.modelPath}`)
-    if (signal.aborted) throw new ASRError('aborted', '已取消')
+      throw new ASRError(
+        'model_missing',
+        tm(`找不到模型文件：${cfg.modelPath}`, `Model file not found: ${cfg.modelPath}`)
+      )
+    if (signal.aborted) throw new ASRError('aborted', tm('已取消', 'Cancelled'))
 
     this.busy = true
     const base = join(this.opts.tmpDir, `asr-${randomUUID()}`)
@@ -63,9 +74,13 @@ export class WhisperCliService implements SpeechRecognitionService {
     try {
       writeFileSync(wavPath, wav)
       await this.runProcess(cfg, wavPath, base, signal)
-      if (!existsSync(jsonPath)) throw new ASRError('failed', 'whisper 没有产生 JSON 输出')
+      if (!existsSync(jsonPath))
+        throw new ASRError(
+          'failed',
+          tm('whisper 没有产生 JSON 输出', 'whisper produced no JSON output')
+        )
       const result = parseWhisperJson(JSON.parse(readFileSync(jsonPath, 'utf8')))
-      if (!result.text) throw new ASRError('empty', '没识别出内容')
+      if (!result.text) throw new ASRError('empty', tm('没识别出内容', 'Nothing was recognized'))
       return result
     } finally {
       rmSync(wavPath, { force: true })
@@ -104,21 +119,42 @@ export class WhisperCliService implements SpeechRecognitionService {
       }
       const onAbort = (): void => {
         kill()
-        finish(new ASRError('aborted', '已取消'))
+        finish(new ASRError('aborted', tm('已取消', 'Cancelled')))
       }
       const timer = setTimeout(() => {
         kill()
-        finish(new ASRError('timeout', `识别超过 ${Math.round(this.timeoutMs / 1000)} 秒，已中止`))
+        finish(
+          new ASRError(
+            'timeout',
+            tm(
+              `识别超过 ${Math.round(this.timeoutMs / 1000)} 秒，已中止`,
+              `Transcription took over ${Math.round(this.timeoutMs / 1000)} s and was stopped`
+            )
+          )
+        )
       }, this.timeoutMs)
       signal.addEventListener('abort', onAbort, { once: true })
       child.stderr?.on('data', (d: Buffer) => {
         stderr += d.toString()
       })
-      child.on('error', (e) => finish(new ASRError('failed', `无法启动 whisper-cli：${e.message}`)))
+      child.on('error', (e) =>
+        finish(
+          new ASRError(
+            'failed',
+            tm(`无法启动 whisper-cli：${e.message}`, `Could not start whisper-cli: ${e.message}`)
+          )
+        )
+      )
       child.on('close', (code) => {
         if (code === 0) finish()
         else
-          finish(new ASRError('failed', `whisper-cli 退出码 ${code}：${stderr.trim().slice(-400)}`))
+          finish(
+            new ASRError(
+              'failed',
+              tm(`whisper-cli 退出码 ${code}：`, `whisper-cli exit code ${code}: `) +
+                stderr.trim().slice(-400)
+            )
+          )
       })
     })
   }
