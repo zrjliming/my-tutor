@@ -74,7 +74,8 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
     dispatch({ type: 'ui', conversationId: cid, event: 'SPEAK' })
     let outcome: SpeakOutcome
     try {
-      outcome = await api.voice.speak(text)
+      // SpeakInputSchema 上限 4000 字符，超长回复只读前面
+      outcome = await api.voice.speak(text.slice(0, 4000))
     } catch (e) {
       outcome = { ok: false, kind: 'failed', message: String((e as Error)?.message ?? e) }
     }
