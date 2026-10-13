@@ -26,6 +26,14 @@ const ERROR_TEXT: Record<Exclude<AIErrorKind, 'aborted'>, string> = {
   unknown: '请求失败，请稍后再试。'
 }
 
+async function voiceReadiness(): Promise<{ ok: boolean; reason: string }> {
+  const s = await api.voice.status()
+  if (!s.binaryFound)
+    return { ok: false, reason: '语音识别未就绪：找不到 whisper-cli，去设置页检查' }
+  if (!s.modelFound) return { ok: false, reason: '语音识别未就绪：模型未下载，去设置页下载' }
+  return { ok: true, reason: '开始录音' }
+}
+
 export function ChatPage({
   onOpenLessonDialog,
   onNew
@@ -58,14 +66,9 @@ export function ChatPage({
     }
   })
 
+  // 挂载时查一次；每次开始录音前再查一次（模型/二进制可能在聊天页停留期间失效）
   useEffect(() => {
-    void api.voice.status().then((s) => {
-      if (!s.binaryFound)
-        setVoiceReady({ ok: false, reason: '语音识别未就绪：找不到 whisper-cli，去设置页检查' })
-      else if (!s.modelFound)
-        setVoiceReady({ ok: false, reason: '语音识别未就绪：模型未下载，去设置页下载' })
-      else setVoiceReady({ ok: true, reason: '开始录音' })
-    })
+    void voiceReadiness().then(setVoiceReady)
   }, [])
 
   // 切换会话时清空输入（渲染期按会话 id 重置 state）与录音（recorder.cancel 是稳定的 useCallback）
@@ -129,6 +132,13 @@ export function ChatPage({
       const result = await chat.transcribe(encodeWav16(samples, 16000))
       // 识别期间切换了会话，文字不能落到新会话的输入框
       if (result !== null && currentIdRef.current === cid) setText(result)
+      return
+    }
+    const ready = await voiceReadiness()
+    if (!mountedRef.current) return
+    setVoiceReady(ready)
+    if (!ready.ok) {
+      chat.showError(ready.reason)
       return
     }
     // 开始录音前先停朗读，免得把朗读声录进去
