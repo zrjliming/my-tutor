@@ -6,8 +6,9 @@ import {
   type ClipboardEvent,
   type DragEvent
 } from 'react'
-import { MODE_LABEL, type AIErrorKind } from '@shared/types'
+import type { AIErrorKind } from '@shared/types'
 import { api } from '../api'
+import { t } from '../i18n'
 import { useRecorder } from '../hooks/useRecorder'
 import { isRecordingCancelled } from '../lib/recorder'
 import { encodeWav16, isSilent } from '../lib/wav'
@@ -18,23 +19,20 @@ import { MessageList } from './MessageList'
 import { InputBar } from './InputBar'
 import { StatePill } from './StatePill'
 
-const ERROR_TEXT: Record<Exclude<AIErrorKind, 'aborted'>, string> = {
-  not_logged_in: 'Claude Code 未登录或不可用，去设置页点"检测连接"。',
-  binary_missing: '找不到 Claude 二进制，请重新安装依赖。',
-  rate_limited: '请求被限流，稍后再试。',
-  network: '网络异常，稍后再试。',
-  unknown: '请求失败，请稍后再试。'
+const ERROR_KEY: Record<Exclude<AIErrorKind, 'aborted'>, string> = {
+  not_logged_in: 'chat.error.notLoggedIn',
+  binary_missing: 'chat.error.binaryMissing',
+  rate_limited: 'chat.error.rateLimited',
+  network: 'chat.error.network',
+  unknown: 'chat.error.unknown'
 }
-
-const NOT_READY_PREFIX = '语音识别未就绪'
 
 async function voiceReadiness(): Promise<{ ok: boolean; reason: string }> {
   const s = await api.voice.status().catch(() => null)
-  if (!s) return { ok: false, reason: `${NOT_READY_PREFIX}：状态读取失败` }
-  if (!s.binaryFound)
-    return { ok: false, reason: `${NOT_READY_PREFIX}：找不到 whisper-cli，去设置页检查` }
-  if (!s.modelFound) return { ok: false, reason: `${NOT_READY_PREFIX}：模型未下载，去设置页下载` }
-  return { ok: true, reason: '开始录音' }
+  if (!s) return { ok: false, reason: t('chat.voice.statusFailed') }
+  if (!s.binaryFound) return { ok: false, reason: t('chat.voice.binaryMissing') }
+  if (!s.modelFound) return { ok: false, reason: t('chat.voice.modelMissing') }
+  return { ok: true, reason: t('chat.voice.startRecording') }
 }
 
 export function ChatPage({
@@ -49,7 +47,7 @@ export function ChatPage({
   const [micDenied, setMicDenied] = useState(false)
   const [voiceReady, setVoiceReady] = useState<{ ok: boolean; reason: string }>({
     ok: false,
-    reason: '检查语音识别状态…'
+    reason: t('chat.voice.checking')
   })
   const onMicRef = useRef<() => Promise<void>>(async () => {})
   // 页面卸载后（如切到设置页），还在进行的启动录音不能再 dispatch 或弹横幅
@@ -129,7 +127,7 @@ export function ChatPage({
       const samples = await recorder.stop()
       if (isSilent(samples)) {
         chat.dispatchUi('STOP')
-        chat.showError('没听到声音，请靠近麦克风再试。')
+        chat.showError(t('chat.voice.silent'))
         return
       }
       const result = await chat.transcribe(encodeWav16(samples, 16000))
@@ -149,7 +147,7 @@ export function ChatPage({
     const allowed = await api.voice.requestMic()
     if (!mountedRef.current) return
     if (!allowed) {
-      chat.showError('麦克风权限被拒绝。请在“系统设置 → 隐私与安全性 → 麦克风”里允许 my-tutor。')
+      chat.showError(t('chat.voice.micDenied'))
       setMicDenied(true)
       return
     }
@@ -169,7 +167,7 @@ export function ChatPage({
       chat.dispatchUiFor(cid, 'START_RECORDING')
     } catch (e) {
       if (!mountedRef.current || isRecordingCancelled(e)) return
-      chat.showError(`无法开始录音：${String((e as Error)?.message ?? e)}`)
+      chat.showError(t('chat.voice.startFailed', { message: String((e as Error)?.message ?? e) }))
     }
   }
   useLayoutEffect(() => {
@@ -206,7 +204,7 @@ export function ChatPage({
         if (!mountedRef.current) return
         setVoiceReady(ready)
         const banner = readinessBannerRef.current
-        if (ready.ok && banner.err?.startsWith(NOT_READY_PREFIX)) banner.clearError()
+        if (ready.ok && banner.err?.startsWith(t('chat.voice.notReady'))) banner.clearError()
       })
     }
     window.addEventListener('focus', recheck)
@@ -269,7 +267,7 @@ export function ChatPage({
       >
         {drag && (
           <div className="absolute inset-0 z-10 bg-accent-soft border-2 border-dashed border-accent flex items-center justify-center text-accent text-base">
-            松开，识别为学习内容
+            {t('chat.dropHint')}
           </div>
         )}
         {chat.current ? (
@@ -277,7 +275,7 @@ export function ChatPage({
             <div className="flex items-center gap-2.5 px-4 pt-10 pb-2.5 border-b border-line">
               <h2 className="text-sm font-semibold flex-1 truncate">{chat.current.title}</h2>
               <span className="text-[11px] px-1.5 rounded-full bg-accent-soft text-accent">
-                {MODE_LABEL[chat.current.mode]}
+                {t(`chat.mode.${chat.current.mode}`)}
                 {chat.current.scenario ? ` · ${chat.current.scenario}` : ''}
               </span>
               <StatePill state={chat.ui} />
@@ -286,39 +284,39 @@ export function ChatPage({
                   className="text-xs px-2 py-0.5 rounded-md border border-line"
                   onClick={() => void chat.stopSpeaking()}
                 >
-                  停止朗读
+                  {t('chat.stopSpeaking')}
                 </button>
               )}
               <button
                 className="text-xs px-2 py-0.5 rounded-md border border-line text-bad"
                 onClick={() => void onDelete()}
               >
-                {confirmId === chat.current.id ? '确认删除？' : '删除'}
+                {confirmId === chat.current.id ? t('chat.confirmDelete') : t('chat.delete')}
               </button>
             </div>
             {retrying !== undefined && (
               <div className="px-4 py-1 text-xs text-warn bg-warn-soft">
-                Claude 请求重试中（第 {retrying} 次）…
+                {t('chat.retrying', { n: retrying })}
               </div>
             )}
             {err && (
               <div className="px-4 py-1.5 text-xs text-bad bg-bad-soft flex items-center gap-2">
                 <span className="flex-1">
-                  {ERROR_TEXT[err as Exclude<AIErrorKind, 'aborted'>] ?? err}
+                  {err in ERROR_KEY ? t(ERROR_KEY[err as Exclude<AIErrorKind, 'aborted'>]) : err}
                 </span>
                 {micDenied && (
                   <button className="underline" onClick={() => void api.voice.openMicSettings()}>
-                    打开系统设置
+                    {t('chat.openSystemSettings')}
                   </button>
                 )}
                 <button className="underline" onClick={chat.clearError}>
-                  知道了
+                  {t('chat.dismiss')}
                 </button>
               </div>
             )}
             <MessageList
               messages={chat.currentMessages}
-              onSpeak={(t) => void chat.speak(t)}
+              onSpeak={(s) => void chat.speak(s)}
               canSpeak={canSpeak(chat.ui)}
             />
             <InputBar
@@ -329,7 +327,7 @@ export function ChatPage({
                 // 在这里判断新值：onClearAsr 闭包里的 text 还是改之前的旧值
                 if (!v) chat.dispatchUi('INPUT_CLEARED')
               }}
-              onSend={(t) => chat.sendMessage(t, chat.asrDraft !== null)}
+              onSend={(s) => chat.sendMessage(s, chat.asrDraft !== null)}
               onStop={onStop}
               onPickImage={() => onOpenLessonDialog()}
               onMic={() => void onMic()}
@@ -342,7 +340,7 @@ export function ChatPage({
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center text-fg-3">
-            新建一个会话开始练习
+            {t('chat.emptyHint')}
           </div>
         )}
       </div>

@@ -21,6 +21,7 @@ import type {
 } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 import { api } from '../api'
+import { t } from '../i18n'
 import { chatReducer, initialState, uiOf, type ChatState } from '../state/chatReducer'
 import { canSpeak, type UiEvent, type UiState } from '../state/machine'
 
@@ -49,12 +50,11 @@ export interface ChatContextValue {
   stopSpeaking(): Promise<void>
 }
 
-const ASR_TEXT: Record<string, string> = {
-  binary_missing: '语音识别未就绪：找不到 whisper-cli，去设置页检查。',
-  model_missing: '语音识别未就绪：模型未下载，去设置页下载。',
-  empty: '没识别出内容，再试一次。',
-  timeout: '识别超时，请缩短录音再试。',
-  failed: '识别失败'
+const ASR_KEY: Record<string, string> = {
+  binary_missing: 'chat.asr.binaryMissing',
+  model_missing: 'chat.asr.modelMissing',
+  empty: 'chat.asr.empty',
+  timeout: 'chat.asr.timeout'
 }
 
 const Ctx = createContext<ChatContextValue | null>(null)
@@ -86,7 +86,7 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
       dispatch({
         type: 'error/shown',
         conversationId: cid,
-        message: `朗读失败：${outcome.message}`
+        message: t('chat.speakFailed', { message: outcome.message })
       })
   }, [])
 
@@ -156,7 +156,7 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
         dispatch({
           type: 'error/shown',
           conversationId: currentId,
-          message: `发送失败：${message}`
+          message: t('chat.sendFailed', { message })
         })
         throw e
       }
@@ -221,11 +221,13 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
       }
       dispatch({ type: 'ui', conversationId: cid, event: 'STOP' })
       if (outcome.kind !== 'aborted') {
-        const base = ASR_TEXT[outcome.kind] ?? '识别失败'
         dispatch({
           type: 'error/shown',
           conversationId: cid,
-          message: outcome.kind === 'failed' ? `${base}：${outcome.message}` : base
+          message:
+            outcome.kind === 'failed'
+              ? t('chat.asr.failedWithReason', { message: outcome.message })
+              : t(ASR_KEY[outcome.kind] ?? 'chat.asr.failed')
         })
       }
       return null
