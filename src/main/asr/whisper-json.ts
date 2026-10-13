@@ -11,6 +11,8 @@ interface Segment {
 }
 
 const isSpecial = (text: string): boolean => text.trim().startsWith('[_')
+// 整段只是非语音标注，如 (water running)、[BLANK_AUDIO]
+const isAnnotation = (text: string): boolean => /^[[(][^\])]*[\])]$/.test(text)
 
 export function parseWhisperJson(json: unknown): ASRResult {
   const root = json as { transcription?: unknown } | null
@@ -23,6 +25,7 @@ export function parseWhisperJson(json: unknown): ASRResult {
     const text = typeof raw.text === 'string' ? raw.text.trim() : ''
     const startMs = typeof raw.offsets?.from === 'number' ? raw.offsets.from : 0
     const endMs = typeof raw.offsets?.to === 'number' ? raw.offsets.to : startMs
+    if (isAnnotation(text)) continue
     if (text) segments.push({ text, startMs, endMs })
     if (Array.isArray(raw.tokens)) {
       for (const t of raw.tokens as Token[]) {

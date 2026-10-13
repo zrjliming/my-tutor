@@ -74,6 +74,45 @@ describe('parseWhisperJson', () => {
       segments: [{ text: 'Hello.', startMs: 0, endMs: 900 }]
     })
   })
+  it('drops segments that are only a non-speech annotation, and their tokens', () => {
+    const r = parseWhisperJson({
+      transcription: [
+        {
+          offsets: { from: 0, to: 2000 },
+          text: ' (water running)',
+          tokens: [
+            { text: ' (', p: 0.2 },
+            { text: 'water running', p: 0.3 },
+            { text: ')', p: 0.4 }
+          ]
+        },
+        {
+          offsets: { from: 2000, to: 3000 },
+          text: ' Hello.',
+          tokens: [{ text: ' Hello.', p: 0.9 }]
+        },
+        {
+          offsets: { from: 3000, to: 4000 },
+          text: ' [BLANK_AUDIO]',
+          tokens: [{ text: ' [BLANK_AUDIO]', p: 0.1 }]
+        }
+      ]
+    })
+    expect(r).toEqual({
+      text: 'Hello.',
+      confidence: 0.9,
+      segments: [{ text: 'Hello.', startMs: 2000, endMs: 3000 }]
+    })
+  })
+  it('returns empty text when every segment is a non-speech annotation', () => {
+    const r = parseWhisperJson({
+      transcription: [
+        { offsets: { from: 0, to: 2000 }, text: ' [BLANK_AUDIO]', tokens: [{ text: 'x', p: 0.5 }] },
+        { offsets: { from: 2000, to: 4000 }, text: ' (wind blowing)' }
+      ]
+    })
+    expect(r).toEqual({ text: '', confidence: 0, segments: [] })
+  })
   it('throws on malformed input', () => {
     expect(() => parseWhisperJson(null)).toThrow(/transcription/)
     expect(() => parseWhisperJson({ transcription: 'nope' })).toThrow(/transcription/)
