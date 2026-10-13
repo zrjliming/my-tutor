@@ -110,3 +110,10 @@ export function summariesSince(db: Db, sinceIso: string): number {
     .get(sinceIso) as { n: number }
   return row.n
 }
+
+export function closeStaleSessions(db: Db): void {
+  db.prepare(
+    `UPDATE practice_sessions SET ended_at = (SELECT updated_at FROM conversations c WHERE c.id = practice_sessions.conversation_id)
+     WHERE ended_at IS NULL`
+  ).run()
+}
