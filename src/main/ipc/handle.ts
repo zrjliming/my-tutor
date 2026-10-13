@@ -1,5 +1,6 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron'
 import type { ZodType } from 'zod'
+import { tm } from '../i18n'
 
 export type IpcHandleTarget = Pick<IpcMain, 'handle'>
 
@@ -15,7 +16,9 @@ export function registerHandler<I, O>(
       const detail = parsed.error.issues
         .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
         .join('; ')
-      throw new Error(`参数无效（${channel}）：${detail}`)
+      throw new Error(
+        tm(`参数无效（${channel}）：${detail}`, `Invalid arguments (${channel}): ${detail}`)
+      )
     }
     return fn(parsed.data)
   })

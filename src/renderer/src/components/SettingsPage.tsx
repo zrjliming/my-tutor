@@ -99,6 +99,8 @@ export function SettingsPage(): React.JSX.Element {
   const changeLanguage = async (uiLanguage: UiLanguage): Promise<void> => {
     await patchSettings({ uiLanguage })
     setLang(uiLanguage)
+    // 音色名由主进程按界面语言生成，切换后重新取
+    setVoices(await api.voice.listVoices().catch(() => []))
   }
   const mb = (n: number): string => `${(n / 1024 / 1024).toFixed(0)} MB`
   const card = 'border border-line rounded-lg px-4 py-3.5 flex flex-col gap-2'

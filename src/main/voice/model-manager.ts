@@ -2,6 +2,7 @@ import { createWriteStream, mkdirSync, renameSync, rmSync, statSync } from 'node
 import { dirname } from 'node:path'
 import type { ModelProgressEvent } from '@shared/types'
 import { WHISPER_MODEL_URL } from '@shared/types'
+import { tm } from '../i18n'
 
 export interface ModelManagerOptions {
   modelPath: () => string
@@ -72,7 +73,8 @@ export class ModelManager {
       mkdirSync(dirname(modelPath), { recursive: true })
       rmSync(partPath, { force: true })
       const res = await this.fetchFn(this.url, { signal: ac.signal })
-      if (!res.ok || !res.body) throw new Error(`下载失败：HTTP ${res.status}`)
+      if (!res.ok || !res.body)
+        throw new Error(tm(`下载失败：HTTP ${res.status}`, `Download failed: HTTP ${res.status}`))
       const totalHeader = res.headers.get('content-length')
       const total = totalHeader ? Number(totalHeader) : null
       out = createWriteStream(partPath)
@@ -86,7 +88,7 @@ export class ModelManager {
       })
       let received = 0
       for (;;) {
-        if (ac.signal.aborted) throw new Error('已取消')
+        if (ac.signal.aborted) throw new Error(tm('已取消', 'Cancelled'))
         const { done, value } = await body.read()
         if (done) break
         received += value.byteLength
@@ -97,9 +99,14 @@ export class ModelManager {
       }
       await new Promise<void>((resolve) => out!.end(resolve))
       out = null
-      if (ac.signal.aborted) throw new Error('已取消')
+      if (ac.signal.aborted) throw new Error(tm('已取消', 'Cancelled'))
       if (total !== null && Number.isFinite(total) && received !== total) {
-        throw new Error(`下载不完整：${received}/${total} 字节`)
+        throw new Error(
+          tm(
+            `下载不完整：${received}/${total} 字节`,
+            `Incomplete download: ${received}/${total} bytes`
+          )
+        )
       }
       renameSync(partPath, modelPath)
       this.opts.onProgress({ type: 'done' })

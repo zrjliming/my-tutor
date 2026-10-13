@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { EventEmitter } from 'node:events'
 import { PassThrough } from 'node:stream'
+import { setMainLanguage } from '../i18n'
 import { MacSayService, parseSayVoices, speakTimeoutMs } from './mac-say'
 
 const SAY_V = `Albert              en_US    # Hello! My name is Albert.
@@ -26,6 +27,18 @@ Eddy (英语（美国）)         en_US    # Hello! My name is Eddy.
     expect(parseSayVoices(out)).toEqual([
       { id: 'Eddy (英语（英国）)', label: 'Eddy（英语（英国））', lang: 'en_GB' },
       { id: 'Eddy (英语（美国）)', label: 'Eddy（英语（美国））', lang: 'en_US' }
+    ])
+  })
+})
+
+describe('parseSayVoices in English UI', () => {
+  afterEach(() => setMainLanguage('zh'))
+  it('labels variants by the language code', () => {
+    setMainLanguage('en')
+    expect(parseSayVoices(SAY_V).map((v) => v.label)).toEqual([
+      'Albert',
+      'Daniel (English (UK))',
+      'Samantha (English (US))'
     ])
   })
 })

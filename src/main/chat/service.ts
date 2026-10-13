@@ -31,6 +31,7 @@ import {
   OPENING_INSTRUCTION,
   type TargetedMaterial
 } from '../learning/prompts'
+import { tm } from '../i18n'
 
 // 语音识别可能把 goed 悄悄规整成 go/got：告诉 Claude 这一轮来自 ASR，只发给 provider，不入库
 const ASR_NOTE =
@@ -66,7 +67,7 @@ export class ChatService {
     input: CreateConversationInput
   ): Promise<{ conversation: Conversation; assistantMessageId: string }> {
     const lesson = input.lessonId ? getLesson(this.deps.db, input.lessonId) : undefined
-    if (input.mode === 'lesson' && !lesson) throw new Error('课程不存在')
+    if (input.mode === 'lesson' && !lesson) throw new Error(tm('课程不存在', 'Lesson not found'))
     const title = lesson
       ? lesson.title
       : input.scenario
@@ -98,8 +99,9 @@ export class ChatService {
     input: SendMessageInput
   ): Promise<{ userMessage: Message; assistantMessageId: string }> {
     const conversation = getConversation(this.deps.db, input.conversationId)
-    if (!conversation) throw new Error('会话不存在')
-    if (this.active.has(conversation.id)) throw new Error('上一轮尚未结束')
+    if (!conversation) throw new Error(tm('会话不存在', 'Conversation not found'))
+    if (this.active.has(conversation.id))
+      throw new Error(tm('上一轮尚未结束', 'The previous reply is still in progress'))
     const userMessage: Message = {
       id: this.uuid(),
       conversationId: conversation.id,
@@ -251,7 +253,9 @@ export class ChatService {
       emit({
         type: 'error',
         kind: aborted ? 'aborted' : 'unknown',
-        message: aborted ? '已停止' : '回复意外中断，没有收到结果'
+        message: aborted
+          ? tm('已停止', 'Stopped')
+          : tm('回复意外中断，没有收到结果', 'The reply was interrupted before any result arrived')
       })
     }
     // 首轮没成功时 CLI 可能已写下会话文件，不删的话下次带同一 sessionId 会被拒（already in use）
