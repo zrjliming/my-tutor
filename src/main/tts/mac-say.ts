@@ -23,17 +23,22 @@ export function parseSayVoices(output: string): TTSVoice[] {
     const raw = m[1].trim()
     const lang = m[2]
     if (!lang.startsWith('en_')) continue
-    const id = raw.replace(/\s*[(（].*$/, '').trim()
-    if (seen.has(id)) continue
-    seen.add(id)
+    // id 用 say 打印的完整名字：多语种音色（如 Eddy）只有带后缀才能选中英语变体
+    const id = raw
+    const key = `${id}\t${lang}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    const shortName = raw.replace(/\s*[(（].*$/, '').trim()
     const suffix = /[(（](.*)[)）]\s*$/.exec(raw)?.[1]
-    voices.push({ id, label: suffix ? `${id}（${suffix}）` : id, lang })
+    voices.push({ id, label: suffix ? `${shortName}（${suffix}）` : shortName, lang })
   }
   return voices
 }
 
 export class MacSayService implements TTSService {
   private current: { child: ChildProcess; done: Promise<void> } | null = null
+  // 每次 speak/stop 递增；speak 等完旧进程后若代数已变，说明被更新的 speak 或 stop 取代，不再 spawn
+  private generation = 0
   private readonly spawnFn: typeof nodeSpawn
   private readonly sayPath: string
   private readonly timeoutFor: (text: string) => number
@@ -45,7 +50,9 @@ export class MacSayService implements TTSService {
   }
 
   async speak(text: string, { voice, rate }: { voice: string; rate: number }): Promise<void> {
-    await this.stop()
+    const gen = ++this.generation
+    await this.stopCurrent()
+    if (gen !== this.generation) return
     const child = this.spawnFn(this.sayPath, ['-v', voice, '-r', String(rate)], {
       env: cleanEnv(this.opts.env ?? process.env),
       stdio: ['pipe', 'ignore', 'ignore']
@@ -75,11 +82,17 @@ export class MacSayService implements TTSService {
       })
     })
     this.current = { child, done }
+    child.stdin?.on('error', () => {}) // say 提前退出时写 stdin 会 EPIPE，结果以 close 为准
     child.stdin?.end(text)
     return done
   }
 
   async stop(): Promise<void> {
+    this.generation++
+    await this.stopCurrent()
+  }
+
+  private async stopCurrent(): Promise<void> {
     const cur = this.current
     if (!cur) return
     try {

@@ -11,11 +11,21 @@ Samantha (英语（美国）)   en_US    # Hello! My name is Samantha.
 `
 
 describe('parseSayVoices', () => {
-  it('keeps english voices, dedupes, strips the localized suffix', () => {
+  it('keeps english voices, dedupes, labels the localized suffix', () => {
     expect(parseSayVoices(SAY_V)).toEqual([
       { id: 'Albert', label: 'Albert', lang: 'en_US' },
-      { id: 'Daniel', label: 'Daniel（英语（英国））', lang: 'en_GB' },
-      { id: 'Samantha', label: 'Samantha（英语（美国））', lang: 'en_US' }
+      { id: 'Daniel (英语（英国）)', label: 'Daniel（英语（英国））', lang: 'en_GB' },
+      { id: 'Samantha (英语（美国）)', label: 'Samantha（英语（美国））', lang: 'en_US' }
+    ])
+  })
+  it('keeps multi-locale english variants as distinct ids', () => {
+    const out = `Eddy (德语（德国）)         de_DE    # Hallo! Ich heiße Eddy.
+Eddy (英语（英国）)         en_GB    # Hello! My name is Eddy.
+Eddy (英语（美国）)         en_US    # Hello! My name is Eddy.
+`
+    expect(parseSayVoices(out)).toEqual([
+      { id: 'Eddy (英语（英国）)', label: 'Eddy（英语（英国））', lang: 'en_GB' },
+      { id: 'Eddy (英语（美国）)', label: 'Eddy（英语（美国））', lang: 'en_US' }
     ])
   })
 })
@@ -91,6 +101,27 @@ describe('MacSayService', () => {
     f.children[1].emit('close', 0)
     await expect(p2).resolves.toBeUndefined()
   })
+  it('two speak calls in the same tick spawn only the second', async () => {
+    const f = fakeSpawn()
+    const tts = new MacSayService({ spawnFn: f.spawnFn as never })
+    const p1 = tts.speak('one', { voice: 'Samantha', rate: 175 })
+    const p2 = tts.speak('two', { voice: 'Samantha', rate: 175 })
+    await expect(p1).resolves.toBeUndefined()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(f.calls).toHaveLength(1)
+    expect(f.children[0].written).toBe('two')
+    f.children[0].emit('close', 0)
+    await expect(p2).resolves.toBeUndefined()
+  })
+  it('speak immediately followed by stop spawns nothing', async () => {
+    const f = fakeSpawn()
+    const tts = new MacSayService({ spawnFn: f.spawnFn as never })
+    const p = tts.speak('one', { voice: 'Samantha', rate: 175 })
+    await tts.stop()
+    await expect(p).resolves.toBeUndefined()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(f.calls).toHaveLength(0)
+  })
   it('times out a hung process with a TTSError', async () => {
     const f = fakeSpawn()
     const tts = new MacSayService({ spawnFn: f.spawnFn as never, timeoutMs: () => 30 })
@@ -115,6 +146,10 @@ describe('MacSayService', () => {
     expect(f.calls[0].args).toEqual(['-v', '?'])
     f.children[0].stdout.write(SAY_V)
     f.children[0].emit('close', 0)
-    expect((await p).map((v) => v.id)).toEqual(['Albert', 'Daniel', 'Samantha'])
+    expect((await p).map((v) => v.id)).toEqual([
+      'Albert',
+      'Daniel (英语（英国）)',
+      'Samantha (英语（美国）)'
+    ])
   })
 })
