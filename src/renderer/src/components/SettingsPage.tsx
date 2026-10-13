@@ -86,7 +86,12 @@ export function SettingsPage(): React.JSX.Element {
   const saveBinaryPath = async (value: string): Promise<void> => {
     const v = value.trim()
     if (v === settings.whisperBinaryPath) return
-    await patchSettings({ whisperBinaryPath: v })
+    try {
+      await patchSettings({ whisperBinaryPath: v })
+    } catch (e) {
+      setVoiceError(`保存失败：${String((e as Error)?.message ?? e)}`)
+      return
+    }
     await refreshVoice()
   }
   const mb = (n: number): string => `${(n / 1024 / 1024).toFixed(0)} MB`

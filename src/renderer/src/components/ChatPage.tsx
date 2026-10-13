@@ -29,7 +29,8 @@ const ERROR_TEXT: Record<Exclude<AIErrorKind, 'aborted'>, string> = {
 const NOT_READY_PREFIX = '语音识别未就绪'
 
 async function voiceReadiness(): Promise<{ ok: boolean; reason: string }> {
-  const s = await api.voice.status()
+  const s = await api.voice.status().catch(() => null)
+  if (!s) return { ok: false, reason: `${NOT_READY_PREFIX}：状态读取失败` }
   if (!s.binaryFound)
     return { ok: false, reason: `${NOT_READY_PREFIX}：找不到 whisper-cli，去设置页检查` }
   if (!s.modelFound) return { ok: false, reason: `${NOT_READY_PREFIX}：模型未下载，去设置页下载` }

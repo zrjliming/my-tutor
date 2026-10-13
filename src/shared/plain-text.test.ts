@@ -19,7 +19,8 @@ describe('stripMarkdownEmphasis', () => {
       'my_file_name',
       'rated 5* overall',
       '**',
-      'unclosed **bold'
+      'unclosed **bold',
+      '2**3 + 4**2'
     ]
     for (const s of keep) expect(stripMarkdownEmphasis(s)).toBe(s)
   })
