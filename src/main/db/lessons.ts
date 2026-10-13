@@ -1,5 +1,6 @@
 import type { Lesson, LessonAsset } from '@shared/types'
 import type { Db } from './index'
+import { clearVocabSource } from './vocabulary'
 
 interface LessonRow {
   id: string
@@ -81,5 +82,6 @@ export function getLesson(db: Db, id: string): Lesson | undefined {
 }
 
 export function deleteLesson(db: Db, id: string): void {
+  clearVocabSource(db, 'lesson', id)
   db.prepare('DELETE FROM lessons WHERE id = ?').run(id)
 }
