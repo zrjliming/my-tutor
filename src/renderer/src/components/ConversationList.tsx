@@ -1,5 +1,6 @@
 import type { Conversation } from '@shared/types'
 import { t } from '../i18n'
+import { conversationTitle } from '../lib/conversationTitle'
 
 interface Props {
   conversations: Conversation[]
@@ -29,7 +30,7 @@ export function ConversationList({
             onClick={() => onSelect(c.id)}
             className={`px-2 py-2 rounded-md cursor-pointer flex flex-col gap-0.5 ${c.id === currentId ? 'bg-accent-soft' : 'hover:bg-surface-2'}`}
           >
-            <span className="font-medium truncate">{c.title}</span>
+            <span className="font-medium truncate">{conversationTitle(c)}</span>
             <span className="text-[11.5px] text-fg-3 flex gap-1.5 items-center">
               <span className="text-[11px] px-1.5 rounded-full bg-accent-soft text-accent">
                 {t(`chat.mode.${c.mode}`)}
