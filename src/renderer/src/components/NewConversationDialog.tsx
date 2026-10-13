@@ -10,7 +10,7 @@ const MODES: Array<{ mode: Mode; hint: string; disabled?: boolean }> = [
   { mode: 'lesson', hint: '围绕一篇已保存的课程' },
   { mode: 'roleplay', hint: 'AI 扮演场景中的角色' },
   { mode: 'scenario', hint: '给你一个目标，完成为止' },
-  { mode: 'targeted', hint: '按薄弱点和到期错句出题（阶段 3）', disabled: true }
+  { mode: 'targeted', hint: '按薄弱点和到期错句出题' }
 ]
 
 interface Props {
@@ -34,12 +34,18 @@ export function NewConversationDialog({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [wasOpen, setWasOpen] = useState(open)
+  const [targetInfo, setTargetInfo] = useState<{
+    hasProfile: boolean
+    weaknesses: string[]
+    due: number
+  } | null>(null)
 
   if (open !== wasOpen) {
     setWasOpen(open)
     if (open) {
       setMode(presetMode ?? 'free')
       setError(null)
+      setTargetInfo(null)
     }
   }
 
@@ -50,6 +56,23 @@ export function NewConversationDialog({
       setLessonId(presetLessonId ?? ls[0]?.id)
     })
   }, [open, presetMode, presetLessonId])
+
+  useEffect(() => {
+    if (!open) return
+    let alive = true
+    void Promise.all([api.learning.profile(), api.mistakes.list('due')]).then(
+      ([p, due]) => {
+        if (alive)
+          setTargetInfo({ hasProfile: !!p, weaknesses: p?.weaknesses ?? [], due: due.length })
+      },
+      () => {
+        if (alive) setTargetInfo({ hasProfile: false, weaknesses: [], due: 0 })
+      }
+    )
+    return () => {
+      alive = false
+    }
+  }, [open])
 
   const needsLesson = mode === 'lesson'
   const needsScenario = mode === 'roleplay' || mode === 'scenario'
@@ -143,6 +166,22 @@ export function NewConversationDialog({
               </button>
             ))}
           </div>
+        </div>
+      )}
+      {mode === 'targeted' && targetInfo && (
+        <div className="flex flex-col gap-1 text-xs">
+          <span className="text-fg-2">
+            本次练习：
+            {targetInfo.weaknesses.length
+              ? targetInfo.weaknesses.slice(0, 3).join('、')
+              : targetInfo.hasProfile
+                ? '学习画像暂无薄弱点'
+                : '还没有学习画像'}{' '}
+            · 到期错句 {Math.min(targetInfo.due, 5)} 条
+          </span>
+          {targetInfo.weaknesses.length === 0 && targetInfo.due === 0 && (
+            <span className="text-fg-3">没有记录时会做一般性复习</span>
+          )}
         </div>
       )}
       {error && <div className="text-xs text-bad">{error}</div>}
