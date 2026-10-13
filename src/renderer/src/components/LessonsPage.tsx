@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Lesson } from '@shared/types'
 import { api } from '../api'
+import { t } from '../i18n'
 
 interface Props {
   onNewFromText: () => void
@@ -53,12 +54,12 @@ export function LessonsPage({
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
       <div className="flex items-center gap-2.5 px-4 pt-10 pb-3 border-b border-line">
-        <h2 className="text-[15px] font-semibold flex-1">课程</h2>
+        <h2 className="text-[15px] font-semibold flex-1">{t('pages.lessons.title')}</h2>
         <button className={btn} onClick={onNewFromText}>
-          从文本新建
+          {t('pages.lessons.newFromText')}
         </button>
         <button className={btn} onClick={onNewFromImage}>
-          从图片识别
+          {t('pages.lessons.newFromImage')}
         </button>
       </div>
       <div className="flex-1 overflow-auto p-4 grid grid-cols-[260px_1fr] gap-4">
@@ -74,12 +75,19 @@ export function LessonsPage({
             >
               <span className="font-medium truncate">{l.title}</span>
               <span className="text-[11.5px] text-fg-3">
-                {l.source === 'image' ? '图片' : '文本'} · {l.createdAt.slice(0, 10)} · 生词{' '}
-                {l.vocabulary.length}
+                {t('pages.lessons.meta', {
+                  source: t(
+                    l.source === 'image' ? 'pages.lessons.sourceImage' : 'pages.lessons.sourceText'
+                  ),
+                  date: l.createdAt.slice(0, 10),
+                  count: l.vocabulary.length
+                })}
               </span>
             </div>
           ))}
-          {lessons.length === 0 && <div className="text-xs text-fg-3 px-2 py-4">还没有课程</div>}
+          {lessons.length === 0 && (
+            <div className="text-xs text-fg-3 px-2 py-4">{t('pages.lessons.empty')}</div>
+          )}
         </div>
         {current && (
           <div className="border border-line rounded-lg p-4 selectable">
@@ -89,10 +97,10 @@ export function LessonsPage({
                 className={`${btn} bg-accent text-white border-transparent`}
                 onClick={() => onStartQa(current.id)}
               >
-                开始课文问答
+                {t('pages.lessons.startQa')}
               </button>
               <button className={`${btn} text-bad`} onClick={() => void remove()}>
-                {confirmId === current.id ? '确认删除？' : '删除'}
+                {confirmId === current.id ? t('pages.confirmDelete') : t('pages.delete')}
               </button>
             </div>
             <div className="whitespace-pre-wrap leading-relaxed text-sm">{current.body}</div>
@@ -110,7 +118,7 @@ export function LessonsPage({
             </div>
             {current.assets.length > 0 && (
               <p className="text-xs text-fg-3 mt-2.5">
-                原图 {current.assets.length} 张已保存在本机
+                {t('pages.lessons.imagesSaved', { count: current.assets.length })}
               </p>
             )}
           </div>

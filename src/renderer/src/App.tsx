@@ -11,8 +11,11 @@ import { SettingsPage } from './components/SettingsPage'
 import { MistakesPage } from './components/MistakesPage'
 import { VocabPage } from './components/VocabPage'
 import { AnalysisPage } from './components/AnalysisPage'
+import { useLang } from './i18n'
 
 export default function App(): React.JSX.Element {
+  // 切换语言时整树重渲染（组件里的 t() 都在渲染期取值）
+  useLang()
   const [page, setPage] = useState<Page>('chat')
   const [newOpen, setNewOpen] = useState<{ mode?: Mode; lessonId?: string } | null>(null)
   const [lessonOpen, setLessonOpen] = useState<{ files?: File[]; raw?: ImageInput[] } | null>(null)

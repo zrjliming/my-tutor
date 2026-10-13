@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { LearnerProfile, LearningStats } from '@shared/types'
 import { CATEGORY_LABEL } from '@shared/types'
 import { api } from '../api'
+import { t } from '../i18n'
 
 const fetchAll = (): Promise<[LearningStats, LearnerProfile | null]> =>
   Promise.all([api.learning.stats(), api.learning.profile()])
@@ -27,7 +28,7 @@ export function AnalysisPage({
     setProfile(p)
   }, [])
   const fail = useCallback((e: unknown) => {
-    setError(`加载失败：${String((e as Error)?.message ?? e)}`)
+    setError(t('pages.loadFailed', { msg: String((e as Error)?.message ?? e) }))
   }, [])
   const load = async (): Promise<void> => {
     try {
@@ -48,7 +49,7 @@ export function AnalysisPage({
       if (r.ok) await load()
       else setError(r.message)
     } catch (e) {
-      setError(`分析失败：${String((e as Error)?.message ?? e)}`)
+      setError(t('pages.analysis.analyzeFailed', { msg: String((e as Error)?.message ?? e) }))
     } finally {
       setBusy(false)
     }
@@ -59,9 +60,11 @@ export function AnalysisPage({
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
       <div className="flex items-center gap-2.5 px-4 pt-10 pb-3 border-b border-line flex-wrap">
-        <h2 className="text-[15px] font-semibold flex-1">学习分析</h2>
+        <h2 className="text-[15px] font-semibold flex-1">{t('pages.analysis.title')}</h2>
         <span className="text-xs text-fg-3">
-          {profile ? `上次分析：${fmt(profile.updatedAt)}` : '还没有分析过'}
+          {profile
+            ? t('pages.analysis.lastAnalyzed', { time: fmt(profile.updatedAt) })
+            : t('pages.analysis.never')}
         </span>
         <button
           className="text-xs px-2 py-1 rounded-md border border-line disabled:opacity-50"
@@ -71,17 +74,17 @@ export function AnalysisPage({
           {busy ? (
             <>
               <span className="inline-block w-3 h-3 mr-1 align-[-2px] rounded-full border-2 border-line border-t-accent animate-spin" />
-              分析中…
+              {t('pages.analysis.analyzing')}
             </>
           ) : (
-            '更新分析'
+            t('pages.analysis.update')
           )}
         </button>
         <button
           className="text-xs px-2.5 py-1 rounded-md bg-accent text-white"
           onClick={onStartTargeted}
         >
-          开始针对性练习
+          {t('pages.analysis.startTargeted')}
         </button>
       </div>
       <div className="flex-1 overflow-auto p-4 grid grid-cols-1 lg:grid-cols-2 gap-3.5 content-start">
@@ -91,12 +94,14 @@ export function AnalysisPage({
             <section className={card}>
               <div className="text-3xl font-bold text-accent leading-none">
                 {profile.level}
-                <span className="text-xs font-normal text-fg-2 ml-2">估计水平（CEFR）</span>
+                <span className="text-xs font-normal text-fg-2 ml-2">
+                  {t('pages.analysis.level')}
+                </span>
               </div>
               <p className="text-zh text-sm m-0 selectable">{profile.summaryZh}</p>
             </section>
             <section className={card}>
-              <h3 className="text-sm font-semibold m-0">薄弱点</h3>
+              <h3 className="text-sm font-semibold m-0">{t('pages.analysis.weaknesses')}</h3>
               <div className="flex flex-wrap gap-1.5">
                 {profile.weaknesses.length ? (
                   profile.weaknesses.map((w, i) => (
@@ -108,10 +113,10 @@ export function AnalysisPage({
                     </span>
                   ))
                 ) : (
-                  <span className="text-xs text-fg-3">暂无</span>
+                  <span className="text-xs text-fg-3">{t('pages.none')}</span>
                 )}
               </div>
-              <h3 className="text-sm font-semibold m-0 mt-2">近期进步</h3>
+              <h3 className="text-sm font-semibold m-0 mt-2">{t('pages.analysis.progress')}</h3>
               {profile.progress.length ? (
                 <ul className="m-0 pl-4 text-sm list-disc">
                   {profile.progress.map((p, i) => (
@@ -119,11 +124,11 @@ export function AnalysisPage({
                   ))}
                 </ul>
               ) : (
-                <span className="text-xs text-fg-3">暂无</span>
+                <span className="text-xs text-fg-3">{t('pages.none')}</span>
               )}
             </section>
             <section className={card}>
-              <h3 className="text-sm font-semibold m-0">建议</h3>
+              <h3 className="text-sm font-semibold m-0">{t('pages.analysis.suggestions')}</h3>
               <ul className="m-0 pl-4 text-sm list-disc">
                 {profile.suggestions.map((s, i) => (
                   <li key={`${i}-${s}`}>{s}</li>
@@ -133,28 +138,28 @@ export function AnalysisPage({
           </>
         ) : (
           <section className={`${card} lg:col-span-2`}>
-            <p className="text-sm text-fg-2 m-0">
-              还没有学习画像。和 AI 练几轮后点「更新分析」，会根据你的错句、生词和练习小结生成。
-            </p>
+            <p className="text-sm text-fg-2 m-0">{t('pages.analysis.noProfile')}</p>
           </section>
         )}
         {stats && (
           <section className={card}>
-            <h3 className="text-sm font-semibold m-0">统计</h3>
+            <h3 className="text-sm font-semibold m-0">{t('pages.analysis.stats')}</h3>
             <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm tabular-nums">
               {(Object.keys(CATEGORY_LABEL) as Array<keyof typeof CATEGORY_LABEL>).map((c) => (
                 <span key={c} className="contents">
-                  <span>待复习 · {CATEGORY_LABEL[c]}</span>
+                  <span>
+                    {t('pages.analysis.pendingByCategory', { category: t(`pages.category.${c}`) })}
+                  </span>
                   <span className="text-right font-semibold">{stats.mistakesByCategory[c]}</span>
                 </span>
               ))}
-              <span>其中到期</span>
+              <span>{t('pages.analysis.due')}</span>
               <span className="text-right font-semibold">{stats.mistakesDue}</span>
-              <span>已掌握错句</span>
+              <span>{t('pages.analysis.masteredMistakes')}</span>
               <span className="text-right font-semibold">{stats.mistakesMastered}</span>
-              <span>生词总数</span>
+              <span>{t('pages.analysis.vocabTotal')}</span>
               <span className="text-right font-semibold">{stats.vocabTotal}</span>
-              <span>练习次数 / 总轮数</span>
+              <span>{t('pages.analysis.sessions')}</span>
               <span className="text-right font-semibold">
                 {stats.sessions} / {stats.totalTurns}
               </span>
@@ -162,7 +167,9 @@ export function AnalysisPage({
             <div className="flex flex-col gap-1 mt-1">
               {stats.vocabByFamiliarity.map((n, f) => (
                 <div key={f} className="flex items-center gap-2 text-xs tabular-nums">
-                  <span className="w-14 text-fg-3">熟悉度 {f}</span>
+                  <span className="w-14 text-fg-3">
+                    {t('pages.analysis.familiarity', { n: f })}
+                  </span>
                   <span className="flex-1 h-1.5 rounded bg-line overflow-hidden">
                     <span
                       className="block h-full bg-accent"

@@ -1,12 +1,14 @@
+import { t } from '../i18n'
+
 export type Page = 'chat' | 'lessons' | 'mistakes' | 'vocab' | 'analysis' | 'settings'
 
-const ITEMS: Array<{ key: Page; label: string; icon: string }> = [
-  { key: 'chat', label: '聊天', icon: '💬' },
-  { key: 'lessons', label: '课程', icon: '📄' },
-  { key: 'mistakes', label: '错句本', icon: '✎' },
-  { key: 'vocab', label: '生词本', icon: 'Aa' },
-  { key: 'analysis', label: '学习分析', icon: '◔' },
-  { key: 'settings', label: '设置', icon: '⚙' }
+const ITEMS: Array<{ key: Page; icon: string }> = [
+  { key: 'chat', icon: '💬' },
+  { key: 'lessons', icon: '📄' },
+  { key: 'mistakes', icon: '✎' },
+  { key: 'vocab', icon: 'Aa' },
+  { key: 'analysis', icon: '◔' },
+  { key: 'settings', icon: '⚙' }
 ]
 
 export function Sidebar({
@@ -25,7 +27,7 @@ export function Sidebar({
           className={`text-left px-2.5 py-1.5 rounded-md flex items-center gap-2 ${page === it.key ? 'bg-accent-soft text-accent font-semibold' : 'text-fg-2 hover:bg-line/40'}`}
         >
           <span className="w-4 text-center text-fg-3">{it.icon}</span>
-          {it.label}
+          {t(`chat.nav.${it.key}`)}
         </button>
       ))}
     </nav>

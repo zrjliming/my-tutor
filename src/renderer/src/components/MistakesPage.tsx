@@ -1,16 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Mistake, MistakeFilter } from '@shared/types'
-import { CATEGORY_LABEL } from '@shared/types'
 import { api } from '../api'
+import { t } from '../i18n'
 
+// label 是文案键，渲染时再 t()
 const FILTERS: Array<{ key: MistakeFilter; label: string }> = [
-  { key: 'all', label: '全部' },
-  { key: 'due', label: '到期复习' },
-  { key: 'grammar', label: '语法' },
-  { key: 'word_choice', label: '用词' },
-  { key: 'naturalness', label: '地道程度' },
-  { key: 'other', label: '其他' },
-  { key: 'mastered', label: '已掌握' }
+  { key: 'all', label: 'pages.mistakes.filterAll' },
+  { key: 'due', label: 'pages.mistakes.due' },
+  { key: 'grammar', label: 'pages.category.grammar' },
+  { key: 'word_choice', label: 'pages.category.word_choice' },
+  { key: 'naturalness', label: 'pages.category.naturalness' },
+  { key: 'other', label: 'pages.category.other' },
+  { key: 'mastered', label: 'pages.mistakes.mastered' }
 ]
 
 const pad = (n: number): string => String(n).padStart(2, '0')
@@ -36,9 +37,10 @@ export function MistakesPage(): React.JSX.Element {
     setError(null)
   }, [])
   const fail = useCallback((e: unknown) => {
-    setError(`加载失败：${String((e as Error)?.message ?? e)}`)
+    setError(t('pages.loadFailed', { msg: String((e as Error)?.message ?? e) }))
   }, [])
-  const opFail = (e: unknown): void => setError(`操作失败：${String((e as Error)?.message ?? e)}`)
+  const opFail = (e: unknown): void =>
+    setError(t('pages.opFailed', { msg: String((e as Error)?.message ?? e) }))
   const reload = async (f: MistakeFilter): Promise<void> => load(f).then(apply, fail)
 
   useEffect(() => {
@@ -85,9 +87,9 @@ export function MistakesPage(): React.JSX.Element {
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
       <div className="flex items-center gap-2.5 px-4 pt-10 pb-3 border-b border-line">
-        <h2 className="text-[15px] font-semibold flex-1">错句本</h2>
+        <h2 className="text-[15px] font-semibold flex-1">{t('pages.mistakes.title')}</h2>
         <span className="text-xs text-fg-3">
-          待复习 {counts.pending} 条 · 其中到期 {counts.due} 条
+          {t('pages.mistakes.counts', { pending: counts.pending, due: counts.due })}
         </span>
       </div>
       <div className="flex-1 overflow-auto p-4 flex flex-col gap-3">
@@ -98,15 +100,13 @@ export function MistakesPage(): React.JSX.Element {
               onClick={() => setFilter(f.key)}
               className={`px-2.5 py-1 rounded-full border text-xs ${filter === f.key ? 'bg-accent text-white border-transparent' : 'border-line text-fg-2'}`}
             >
-              {f.label}
+              {t(f.label)}
             </button>
           ))}
         </div>
         {error && <div className="text-xs text-bad">{error}</div>}
         {items.length === 0 && !error && (
-          <p className="text-fg-3 text-sm">
-            这个分类下没有错句。和 AI 多聊几轮，纠错会自动收进来。
-          </p>
+          <p className="text-fg-3 text-sm">{t('pages.mistakes.empty')}</p>
         )}
         {items.map((m) => (
           <div
@@ -116,18 +116,27 @@ export function MistakesPage(): React.JSX.Element {
             <div className="flex-1 min-w-0 flex flex-col gap-1">
               <div className="flex items-center gap-2 flex-wrap text-[11px]">
                 <span className="px-1.5 rounded-full bg-surface-2 border border-line text-fg-2">
-                  {CATEGORY_LABEL[m.category]}
+                  {t(`pages.category.${m.category}`)}
                 </span>
                 {m.status === 'mastered' ? (
-                  <span className="px-1.5 rounded bg-good-soft text-good">已掌握</span>
+                  <span className="px-1.5 rounded bg-good-soft text-good">
+                    {t('pages.mistakes.mastered')}
+                  </span>
                 ) : m.nextReviewAt <= now ? (
-                  <span className="px-1.5 rounded bg-warn-soft text-warn">到期复习</span>
+                  <span className="px-1.5 rounded bg-warn-soft text-warn">
+                    {t('pages.mistakes.due')}
+                  </span>
                 ) : (
                   <span className="text-fg-3">
-                    已复习 {m.reviewCount} 次 · 下次 {md(m.nextReviewAt)}
+                    {t('pages.mistakes.reviewed', {
+                      count: m.reviewCount,
+                      date: md(m.nextReviewAt)
+                    })}
                   </span>
                 )}
-                {m.conversationId === null && <span className="text-fg-3">来源会话已删除</span>}
+                {m.conversationId === null && (
+                  <span className="text-fg-3">{t('pages.mistakes.sourceDeleted')}</span>
+                )}
               </div>
               <div className="text-sm">
                 <span className="line-through text-bad">{m.original}</span>
@@ -139,11 +148,11 @@ export function MistakesPage(): React.JSX.Element {
             <div className="flex gap-1.5 shrink-0">
               {m.status !== 'mastered' && (
                 <button className={btn} onClick={() => void master(m.id)}>
-                  标记已掌握
+                  {t('pages.mistakes.markMastered')}
                 </button>
               )}
               <button className={`${btn} text-bad`} onClick={() => void remove(m.id)}>
-                {confirmId === m.id ? '确认删除？' : '删除'}
+                {confirmId === m.id ? t('pages.confirmDelete') : t('pages.delete')}
               </button>
             </div>
           </div>

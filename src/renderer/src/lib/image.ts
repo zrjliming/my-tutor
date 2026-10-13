@@ -1,4 +1,5 @@
 import type { ImageInput } from '@shared/types'
+import { t } from '../i18n'
 
 const MAX_EDGE = 1600
 const MAX_BYTES = 1.5 * 1024 * 1024
@@ -7,7 +8,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => resolve(img)
-    img.onerror = () => reject(new Error('图片无法解码'))
+    img.onerror = () => reject(new Error(t('chat.image.decodeFailed')))
     img.src = src
   })
 }
@@ -18,7 +19,7 @@ async function compress(img: HTMLImageElement, name?: string): Promise<ImageInpu
   canvas.width = Math.round(img.width * scale)
   canvas.height = Math.round(img.height * scale)
   const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('canvas 不可用')
+  if (!ctx) throw new Error(t('chat.image.canvasUnavailable'))
   ctx.fillStyle = '#fff'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
@@ -27,7 +28,7 @@ async function compress(img: HTMLImageElement, name?: string): Promise<ImageInpu
     const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
     if (base64.length * 0.75 <= MAX_BYTES) return { mime: 'image/jpeg', base64, name }
   }
-  throw new Error('图片压缩后仍然过大')
+  throw new Error(t('chat.image.tooLarge'))
 }
 
 export async function fileToImageInput(file: File): Promise<ImageInput> {

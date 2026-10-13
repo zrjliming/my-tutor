@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { VocabEntry } from '@shared/types'
 import { api } from '../api'
+import { t } from '../i18n'
 
 export function VocabPage(): React.JSX.Element {
   const [query, setQuery] = useState('')
@@ -15,19 +16,20 @@ export function VocabPage(): React.JSX.Element {
       setItems(await api.vocab.list(q))
       setError(null)
     } catch (e) {
-      setError(`加载失败：${String((e as Error)?.message ?? e)}`)
+      setError(t('pages.loadFailed', { msg: String((e as Error)?.message ?? e) }))
     } finally {
       setLoaded(true)
     }
   }, [])
 
   useEffect(() => {
-    const t = setTimeout(() => void reload(query), 250)
-    return () => clearTimeout(t)
+    const h = setTimeout(() => void reload(query), 250)
+    return () => clearTimeout(h)
   }, [query, reload])
   useEffect(() => () => clearTimeout(timer.current), [])
 
-  const opFail = (e: unknown): void => setError(`操作失败：${String((e as Error)?.message ?? e)}`)
+  const opFail = (e: unknown): void =>
+    setError(t('pages.opFailed', { msg: String((e as Error)?.message ?? e) }))
   const setFam = async (v: VocabEntry, f: number): Promise<void> => {
     try {
       await api.vocab.setFamiliarity(v.id, f)
@@ -60,16 +62,16 @@ export function VocabPage(): React.JSX.Element {
   return (
     <div className="flex-1 min-w-0 flex flex-col min-h-0">
       <div className="flex items-center gap-2.5 px-4 pt-10 pb-3 border-b border-line">
-        <h2 className="text-[15px] font-semibold flex-1">生词本</h2>
+        <h2 className="text-[15px] font-semibold flex-1">{t('pages.vocab.title')}</h2>
         <input
           id="vocab-search"
           className="rounded-md border border-line bg-surface px-2 py-1 text-sm w-48 selectable"
-          placeholder="搜索单词或释义"
+          placeholder={t('pages.vocab.search')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
         <span className="text-xs text-fg-3">
-          共 {items.length} 个 · 已掌握 {mastered} 个
+          {t('pages.vocab.counts', { total: items.length, mastered })}
         </span>
       </div>
       <div className="flex-1 overflow-auto p-4 flex flex-col gap-2.5">
@@ -77,8 +79,8 @@ export function VocabPage(): React.JSX.Element {
         {loaded && items.length === 0 && !error && (
           <p className="text-fg-3 text-sm">
             {query.trim()
-              ? `没有找到「${query.trim()}」。`
-              : '还没有生词。聊天和课程里出现的生词会自动收进来。'}
+              ? t('pages.vocab.notFound', { query: query.trim() })
+              : t('pages.vocab.empty')}
           </p>
         )}
         {items.map((v) => (
@@ -90,11 +92,14 @@ export function VocabPage(): React.JSX.Element {
               <div className="flex items-center gap-2 flex-wrap">
                 <b>{v.word}</b>
                 <span className="text-zh text-sm">{v.meaningZh}</span>
-                <span className="inline-flex gap-1" title={`熟悉度 ${v.familiarity}/5`}>
+                <span
+                  className="inline-flex gap-1"
+                  title={t('pages.vocab.familiarity', { n: v.familiarity })}
+                >
                   {[1, 2, 3, 4, 5].map((k) => (
                     <button
                       key={k}
-                      aria-label={`熟悉度设为 ${k}`}
+                      aria-label={t('pages.vocab.setFamiliarity', { n: k })}
                       onClick={() => void setFam(v, v.familiarity === k ? k - 1 : k)}
                       className={`w-2.5 h-2.5 rounded-full ${k <= v.familiarity ? 'bg-accent' : 'bg-line'}`}
                     />
@@ -103,22 +108,26 @@ export function VocabPage(): React.JSX.Element {
               </div>
               {v.example && <div className="italic text-fg-2 text-[12.5px]">{v.example}</div>}
               <div className="text-[11.5px] text-fg-3">
-                {v.sourceId === null
-                  ? '来源已删除'
-                  : v.source === 'lesson'
-                    ? '来自课程'
-                    : '来自会话'}{' '}
-                · 见过 {v.seenCount} 次
+                {t('pages.vocab.meta', {
+                  source: t(
+                    v.sourceId === null
+                      ? 'pages.vocab.sourceDeleted'
+                      : v.source === 'lesson'
+                        ? 'pages.vocab.fromLesson'
+                        : 'pages.vocab.fromChat'
+                  ),
+                  count: v.seenCount
+                })}
               </div>
             </div>
             <div className="flex gap-1.5 shrink-0">
               {v.familiarity < 5 && (
                 <button className={btn} onClick={() => void setFam(v, 5)}>
-                  已掌握
+                  {t('pages.vocab.markMastered')}
                 </button>
               )}
               <button className={`${btn} text-bad`} onClick={() => void remove(v.id)}>
-                {confirmId === v.id ? '确认删除？' : '删除'}
+                {confirmId === v.id ? t('pages.confirmDelete') : t('pages.delete')}
               </button>
             </div>
           </div>

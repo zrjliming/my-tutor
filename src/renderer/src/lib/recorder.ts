@@ -1,4 +1,5 @@
 import { MAX_RECORDING_SECONDS } from '@shared/types'
+import { t } from '../i18n'
 
 export interface RecorderOptions {
   onTick?: (seconds: number) => void
@@ -10,14 +11,17 @@ export interface RecorderOptions {
 const TARGET_RATE = 16000
 
 /** 启动期间被 cancel() 时 start() 抛出的错误；调用方应静默处理。 */
+// 内部标记，不展示给用户，所以不走 t()
+const CANCELLED_MESSAGE = 'recording cancelled'
+
 export function recordingCancelledError(): Error {
-  const err = new Error('录音已取消')
+  const err = new Error(CANCELLED_MESSAGE)
   err.name = 'AbortError'
   return err
 }
 
 export const isRecordingCancelled = (e: unknown): boolean =>
-  e instanceof Error && e.name === 'AbortError' && e.message === '录音已取消'
+  e instanceof Error && e.name === 'AbortError' && e.message === CANCELLED_MESSAGE
 
 async function resampleTo16k(chunks: Float32Array[], sourceRate: number): Promise<Float32Array> {
   const total = chunks.reduce((n, c) => n + c.length, 0)
@@ -62,7 +66,7 @@ export class Recorder {
   }
 
   async start(): Promise<void> {
-    if (this.active || this.starting) throw new Error('已在录音')
+    if (this.active || this.starting) throw new Error(t('chat.recorder.alreadyRecording'))
     this.starting = true
     this.cancelRequested = false
     this.pending = null
@@ -85,7 +89,7 @@ export class Recorder {
         // 不连到 destination，避免回放到扬声器
         stream.getAudioTracks()[0]?.addEventListener('ended', () => {
           if (this.stream !== stream) return
-          this.opts.onError?.('麦克风已断开')
+          this.opts.onError?.(t('chat.recorder.micDisconnected'))
           this.finish('ended')
         })
         this.stream = stream
@@ -98,7 +102,7 @@ export class Recorder {
           if (this.seconds >= this.maxSeconds) this.finish('limit')
         }, 1000)
       } catch (err) {
-        stream.getTracks().forEach((t) => t.stop())
+        stream.getTracks().forEach((track) => track.stop())
         void context?.close()
         throw err
       }
@@ -144,7 +148,7 @@ export class Recorder {
     this.node?.port.close()
     this.node?.disconnect()
     this.node = null
-    this.stream?.getTracks().forEach((t) => t.stop())
+    this.stream?.getTracks().forEach((track) => track.stop())
     this.stream = null
     void this.context?.close()
     this.context = null
