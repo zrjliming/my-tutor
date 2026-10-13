@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
+import { DatabaseSync } from 'node:sqlite'
 import { openDatabase, migrate, type Db } from './index'
 import {
   insertConversation,
@@ -14,7 +15,15 @@ import {
   listMessages,
   markOrphanedStreamingAsStopped
 } from './messages'
-import { insertLesson, listLessons, getLesson, deleteLesson } from './lessons'
+import { MIGRATIONS } from './migrations'
+import {
+  insertLesson,
+  listLessons,
+  getLesson,
+  deleteLesson,
+  listLessonSentences,
+  getSentenceAudioPath
+} from './lessons'
 import { getSettings, patchSettings } from './settings'
 import type { Conversation, Lesson, Message } from '@shared/types'
 
@@ -56,8 +65,8 @@ describe('migrate', () => {
     expect(db.prepare('PRAGMA user_version').get()).toEqual({ user_version: 99 })
   })
   it('sets user_version and is idempotent', () => {
-    expect(migrate(db)).toBe(2)
-    expect(migrate(db)).toBe(2)
+    expect(migrate(db)).toBe(3)
+    expect(migrate(db)).toBe(3)
     const tables = db
       .prepare(`SELECT name FROM sqlite_master WHERE type='table' ORDER BY name`)
       .all() as { name: string }[]
@@ -65,6 +74,7 @@ describe('migrate', () => {
       'conversations',
       'learner_profile',
       'lesson_assets',
+      'lesson_sentences',
       'lessons',
       'messages',
       'mistakes',
@@ -72,6 +82,37 @@ describe('migrate', () => {
       'settings',
       'vocabulary'
     ])
+  })
+})
+
+describe('migration 3: lesson_sentences', () => {
+  it('upgrades a v2 database and cascades sentences on lesson delete', () => {
+    const raw = new DatabaseSync(':memory:')
+    raw.exec('PRAGMA foreign_keys = ON')
+    raw.exec('BEGIN')
+    raw.exec(MIGRATIONS[0])
+    raw.exec(MIGRATIONS[1])
+    raw.exec('PRAGMA user_version = 2')
+    raw.exec('COMMIT')
+    raw
+      .prepare(
+        `INSERT INTO lessons (id, title, body, source, created_at) VALUES ('l1', 'L', 'b', 'text', 'x')`
+      )
+      .run()
+    expect(migrate(raw)).toBe(3)
+    raw
+      .prepare(
+        `INSERT INTO lesson_sentences (id, lesson_id, idx, text, text_zh, audio_path) VALUES ('s2', 'l1', 2, 'Yes?', '什么事？', '/a/02.mp3'), ('s1', 'l1', 1, 'Excuse me!', '对不起', '/a/01.mp3')`
+      )
+      .run()
+    expect(listLessonSentences(raw, 'l1')).toEqual([
+      { id: 's1', idx: 1, text: 'Excuse me!', textZh: '对不起' },
+      { id: 's2', idx: 2, text: 'Yes?', textZh: '什么事？' }
+    ])
+    expect(getSentenceAudioPath(raw, 's2')).toBe('/a/02.mp3')
+    expect(getSentenceAudioPath(raw, 'nope')).toBeUndefined()
+    deleteLesson(raw, 'l1')
+    expect(listLessonSentences(raw, 'l1')).toEqual([])
   })
 })
 

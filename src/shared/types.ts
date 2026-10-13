@@ -65,6 +65,14 @@ export interface LessonAsset {
   size: number
 }
 
+/** 课文逐句音频（目前只由导入脚本写入） */
+export interface LessonSentence {
+  id: string
+  idx: number
+  text: string
+  textZh: string
+}
+
 export interface Lesson {
   id: string
   title: string

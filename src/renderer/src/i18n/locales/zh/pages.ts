@@ -22,6 +22,11 @@ export default {
   'pages.lessons.startQa': '开始课文问答',
   'pages.lessons.imagesSaved': '原图 {count} 张已保存在本机',
   'pages.lessons.dropHint': '松开，识别为学习内容',
+  'pages.lessons.audioTitle': '课文朗读',
+  'pages.lessons.audioPlayAll': '全部播放',
+  'pages.lessons.audioStop': '停止',
+  'pages.lessons.audioPlay': '播放这句',
+  'pages.lessons.audioFailed': '音频播放失败',
 
   'pages.lessonDialog.title': '识别为学习内容',
   'pages.lessonDialog.extract': '识别',

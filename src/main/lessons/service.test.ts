@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, rmSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { openDatabase, type Db } from '../db/index'
@@ -83,5 +83,24 @@ describe('save / list / delete', () => {
     const lesson = svc.save({ ...extraction, source: 'text' })
     expect(lesson.assets).toEqual([])
     expect(lesson.vocabulary).toHaveLength(1)
+  })
+})
+
+describe('sentence audio', () => {
+  it('lists sentences, reads audio by stored path, and delete removes the audio dir', async () => {
+    const svc = new LessonService({ db, ai: new FakeAIProvider(), lessonsDir: dir })
+    const lesson = svc.save({ ...extraction, source: 'text' })
+    const audioDir = join(dir, lesson.id, 'audio')
+    mkdirSync(audioDir, { recursive: true })
+    writeFileSync(join(audioDir, '01.mp3'), Buffer.from([1, 2, 3]))
+    db.prepare(
+      'INSERT INTO lesson_sentences (id, lesson_id, idx, text, audio_path) VALUES (?, ?, ?, ?, ?)'
+    ).run('s1', lesson.id, 1, 'Excuse me!', join(audioDir, '01.mp3'))
+    expect(svc.sentences(lesson.id)).toEqual([{ id: 's1', idx: 1, text: 'Excuse me!', textZh: '' }])
+    expect([...svc.sentenceAudio('s1')]).toEqual([1, 2, 3])
+    expect(() => svc.sentenceAudio('nope')).toThrow()
+    await svc.delete(lesson.id)
+    expect(svc.sentences(lesson.id)).toEqual([])
+    expect(existsSync(audioDir)).toBe(false)
   })
 })

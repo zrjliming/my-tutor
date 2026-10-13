@@ -1,4 +1,4 @@
-import type { Lesson, LessonAsset } from '@shared/types'
+import type { Lesson, LessonAsset, LessonSentence } from '@shared/types'
 import type { Db } from './index'
 import { clearVocabSource } from './vocabulary'
 
@@ -84,4 +84,18 @@ export function getLesson(db: Db, id: string): Lesson | undefined {
 export function deleteLesson(db: Db, id: string): void {
   clearVocabSource(db, 'lesson', id)
   db.prepare('DELETE FROM lessons WHERE id = ?').run(id)
+}
+
+export function listLessonSentences(db: Db, lessonId: string): LessonSentence[] {
+  return db
+    .prepare(
+      'SELECT id, idx, text, text_zh AS textZh FROM lesson_sentences WHERE lesson_id = ? ORDER BY idx'
+    )
+    .all(lessonId) as unknown as LessonSentence[]
+}
+
+export function getSentenceAudioPath(db: Db, sentenceId: string): string | undefined {
+  const row = db.prepare('SELECT audio_path FROM lesson_sentences WHERE id = ?').get(sentenceId) as
+    { audio_path: string } | undefined
+  return row?.audio_path
 }

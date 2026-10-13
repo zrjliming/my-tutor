@@ -72,6 +72,8 @@ export function registerIpc(
   )
   registerHandler(ipc, IPC.lessonsSave, SaveLessonInputSchema, (i) => lessons.save(i))
   registerHandler(ipc, IPC.lessonsDelete, z.string().uuid(), (id) => lessons.delete(id))
+  registerHandler(ipc, IPC.lessonsSentences, IdSchema, (id) => lessons.sentences(id))
+  registerHandler(ipc, IPC.lessonsSentenceAudio, IdSchema, (id) => lessons.sentenceAudio(id))
   registerVoidHandler(ipc, IPC.settingsGet, () => getSettings(db))
   registerHandler(ipc, IPC.settingsPatch, SettingsPatchSchema, (p) => {
     const settings = patchSettings(db, p)

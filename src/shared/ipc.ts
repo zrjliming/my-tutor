@@ -11,6 +11,7 @@ import type {
   LearnerProfile,
   LearningStats,
   LessonExtraction,
+  LessonSentence,
   Message,
   Mistake,
   MistakeFilter,
@@ -37,6 +38,8 @@ export const IPC = {
   lessonsExtract: 'lessons:extract',
   lessonsSave: 'lessons:save',
   lessonsDelete: 'lessons:delete',
+  lessonsSentences: 'lessons:sentences',
+  lessonsSentenceAudio: 'lessons:sentenceAudio',
   settingsGet: 'settings:get',
   settingsPatch: 'settings:patch',
   aiCheck: 'ai:check',
@@ -89,6 +92,8 @@ export interface SpeakMateAPI {
     extract(input: ExtractLessonInput): Promise<LessonExtraction>
     save(input: SaveLessonInput): Promise<Lesson>
     delete(id: string): Promise<void>
+    sentences(lessonId: string): Promise<LessonSentence[]>
+    sentenceAudio(sentenceId: string): Promise<Uint8Array>
   }
   settings: {
     get(): Promise<AppSettings>
