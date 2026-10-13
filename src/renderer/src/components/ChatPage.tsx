@@ -1,5 +1,15 @@
-import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type DragEvent
+} from 'react'
 import { MODE_LABEL, type AIErrorKind } from '@shared/types'
+import { api } from '../api'
+import { useRecorder } from '../hooks/useRecorder'
+import { encodeWav16, isSilent } from '../lib/wav'
 import { useChat } from '../store/ChatStore'
 import { ConversationList } from './ConversationList'
 import { MessageList } from './MessageList'
@@ -22,6 +32,74 @@ export function ChatPage({
   onNew: () => void
 }): React.JSX.Element {
   const chat = useChat()
+  const [text, setText] = useState('')
+  const [micDenied, setMicDenied] = useState(false)
+  const [voiceReady, setVoiceReady] = useState<{ ok: boolean; reason: string }>({
+    ok: false,
+    reason: '检查语音识别状态…'
+  })
+  const onMicRef = useRef<() => Promise<void>>(async () => {})
+  const recorder = useRecorder({
+    onError: (m) => chat.showError(m),
+    // 到 60 秒上限或麦克风断开时，走与点 ■ 完全相同的流程，录音不会丢
+    onAutoStop: () => void onMicRef.current()
+  })
+
+  useEffect(() => {
+    void api.voice.status().then((s) => {
+      if (!s.binaryFound)
+        setVoiceReady({ ok: false, reason: '语音识别未就绪：找不到 whisper-cli，去设置页检查' })
+      else if (!s.modelFound)
+        setVoiceReady({ ok: false, reason: '语音识别未就绪：模型未下载，去设置页下载' })
+      else setVoiceReady({ ok: true, reason: '开始录音' })
+    })
+  }, [])
+
+  // 切换会话时清空输入（渲染期按会话 id 重置 state）与录音（recorder.cancel 是稳定的 useCallback）
+  const currentIdForEffect = chat.current?.id ?? null
+  const [textOwnerId, setTextOwnerId] = useState(currentIdForEffect)
+  if (textOwnerId !== currentIdForEffect) {
+    setTextOwnerId(currentIdForEffect)
+    setText('')
+  }
+  const cancelRecording = recorder.cancel
+  useEffect(() => {
+    cancelRecording()
+  }, [currentIdForEffect, cancelRecording])
+
+  const onMic = async (): Promise<void> => {
+    if (chat.ui === 'recording') {
+      const samples = await recorder.stop()
+      if (isSilent(samples)) {
+        chat.dispatchUi('STOP')
+        chat.showError('没听到声音，请靠近麦克风再试。')
+        return
+      }
+      const result = await chat.transcribe(encodeWav16(samples, 16000))
+      if (result !== null) setText(result)
+      return
+    }
+    const allowed = await api.voice.requestMic()
+    if (!allowed) {
+      chat.showError('麦克风权限被拒绝。请在“系统设置 → 隐私与安全性 → 麦克风”里允许 my-tutor。')
+      setMicDenied(true)
+      return
+    }
+    try {
+      await recorder.start()
+      chat.dispatchUi('START_RECORDING')
+    } catch (e) {
+      chat.showError(`无法开始录音：${String((e as Error)?.message ?? e)}`)
+    }
+  }
+  useLayoutEffect(() => {
+    onMicRef.current = onMic
+  })
+
+  const onStop = (): void => {
+    if (chat.ui === 'transcribing') void chat.cancelTranscribe()
+    else void chat.cancel()
+  }
   // 确认状态绑定到具体会话，切换会话后不会误删另一个
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const confirmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -115,6 +193,11 @@ export function ChatPage({
                 <span className="flex-1">
                   {ERROR_TEXT[err as Exclude<AIErrorKind, 'aborted'>] ?? err}
                 </span>
+                {micDenied && (
+                  <button className="underline" onClick={() => void api.voice.openMicSettings()}>
+                    打开系统设置
+                  </button>
+                )}
                 <button className="underline" onClick={chat.clearError}>
                   知道了
                 </button>
@@ -123,9 +206,24 @@ export function ChatPage({
             <MessageList messages={chat.currentMessages} />
             <InputBar
               ui={chat.ui}
-              onSend={(t) => chat.sendMessage(t)}
-              onStop={() => void chat.cancel()}
+              value={text}
+              onChange={(v) => {
+                setText(v)
+                // 在这里判断新值：onClearAsr 闭包里的 text 还是改之前的旧值
+                if (!v) chat.dispatchUi('INPUT_CLEARED')
+              }}
+              onSend={(t) => chat.sendMessage(t, chat.asrDraft !== null)}
+              onStop={onStop}
               onPickImage={() => onOpenLessonDialog()}
+              onMic={() => void onMic()}
+              micDisabled={!voiceReady.ok}
+              micTitle={voiceReady.reason}
+              recordingSeconds={chat.ui === 'recording' ? recorder.seconds : null}
+              asr={chat.asrDraft}
+              onClearAsr={() => {
+                chat.clearAsrDraft()
+                if (!text) chat.dispatchUi('INPUT_CLEARED')
+              }}
             />
           </>
         ) : (

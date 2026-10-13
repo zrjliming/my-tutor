@@ -33,7 +33,20 @@ export interface ChatContextValue {
   deleteConversation(id: string): Promise<void>
   dispatchUi(event: UiEvent): void
   clearError(): void
+  asrDraft: { confidence: number } | null
+  transcribe(wav: Uint8Array): Promise<string | null>
+  cancelTranscribe(): Promise<void>
+  clearAsrDraft(): void
+  showError(message: string): void
   patchSettings(patch: SettingsPatch): Promise<void>
+}
+
+const ASR_TEXT: Record<string, string> = {
+  binary_missing: '语音识别未就绪：找不到 whisper-cli，去设置页检查。',
+  model_missing: '语音识别未就绪：模型未下载，去设置页下载。',
+  empty: '没识别出内容，再试一次。',
+  timeout: '识别超时，请缩短录音再试。',
+  failed: '识别失败'
 }
 
 const Ctx = createContext<ChatContextValue | null>(null)
@@ -117,6 +130,48 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
     if (currentId) dispatch({ type: 'error/cleared', conversationId: currentId })
   }, [currentId])
 
+  const showError = useCallback(
+    (message: string) => {
+      if (currentId) dispatch({ type: 'error/shown', conversationId: currentId, message })
+    },
+    [currentId]
+  )
+
+  const transcribe = useCallback(
+    async (wav: Uint8Array): Promise<string | null> => {
+      if (!currentId) return null
+      const cid = currentId
+      dispatch({ type: 'ui', conversationId: cid, event: 'STOP_RECORDING' })
+      const outcome = await api.voice.transcribe(wav)
+      if (outcome.ok) {
+        dispatch({
+          type: 'asr/transcribed',
+          conversationId: cid,
+          confidence: outcome.result.confidence
+        })
+        dispatch({ type: 'ui', conversationId: cid, event: 'TRANSCRIBED' })
+        return outcome.result.text
+      }
+      dispatch({ type: 'ui', conversationId: cid, event: 'STOP' })
+      if (outcome.kind !== 'aborted') {
+        const base = ASR_TEXT[outcome.kind] ?? '识别失败'
+        dispatch({
+          type: 'error/shown',
+          conversationId: cid,
+          message: outcome.kind === 'failed' ? `${base}：${outcome.message}` : base
+        })
+      }
+      return null
+    },
+    [currentId]
+  )
+
+  const cancelTranscribe = useCallback(async () => api.voice.cancelTranscribe(), [])
+
+  const clearAsrDraft = useCallback(() => {
+    if (currentId) dispatch({ type: 'asr/cleared', conversationId: currentId })
+  }, [currentId])
+
   const patchSettings = useCallback(
     async (patch: SettingsPatch) => setSettings(await api.settings.patch(patch)),
     []
@@ -136,6 +191,11 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
       deleteConversation,
       dispatchUi,
       clearError,
+      asrDraft: currentId ? (state.asrDraft[currentId] ?? null) : null,
+      transcribe,
+      cancelTranscribe,
+      clearAsrDraft,
+      showError,
       patchSettings
     }),
     [
@@ -149,6 +209,10 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
       deleteConversation,
       dispatchUi,
       clearError,
+      transcribe,
+      cancelTranscribe,
+      clearAsrDraft,
+      showError,
       patchSettings
     ]
   )
