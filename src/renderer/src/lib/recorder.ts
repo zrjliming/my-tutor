@@ -9,6 +9,16 @@ export interface RecorderOptions {
 
 const TARGET_RATE = 16000
 
+/** 启动期间被 cancel() 时 start() 抛出的错误；调用方应静默处理。 */
+export function recordingCancelledError(): Error {
+  const err = new Error('录音已取消')
+  err.name = 'AbortError'
+  return err
+}
+
+export const isRecordingCancelled = (e: unknown): boolean =>
+  e instanceof Error && e.name === 'AbortError' && e.message === '录音已取消'
+
 async function resampleTo16k(chunks: Float32Array[], sourceRate: number): Promise<Float32Array> {
   const total = chunks.reduce((n, c) => n + c.length, 0)
   const merged = new Float32Array(total)
@@ -40,6 +50,7 @@ export class Recorder {
   private seconds = 0
   private readonly maxSeconds: number
   private starting = false
+  private cancelRequested = false
   private pending: Promise<Float32Array> | null = null
 
   constructor(private readonly opts: RecorderOptions = {}) {
@@ -53,13 +64,17 @@ export class Recorder {
   async start(): Promise<void> {
     if (this.active || this.starting) throw new Error('已在录音')
     this.starting = true
+    this.cancelRequested = false
     this.pending = null
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       let context: AudioContext | null = null
       try {
+        // 每个 await 之后检查：启动期间被 cancel() 就释放已拿到的流与 AudioContext
+        if (this.cancelRequested) throw recordingCancelledError()
         context = new AudioContext()
         await context.audioWorklet.addModule('./recorder-worklet.js')
+        if (this.cancelRequested) throw recordingCancelledError()
         const source = context.createMediaStreamSource(stream)
         const node = new AudioWorkletNode(context, 'recorder-processor')
         this.chunks = []
@@ -100,6 +115,7 @@ export class Recorder {
   }
 
   cancel(): void {
+    if (this.starting) this.cancelRequested = true
     this.pending = null
     this.release()
   }

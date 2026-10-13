@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { Recorder } from '../lib/recorder'
+import { Recorder, recordingCancelledError } from '../lib/recorder'
 
 export function useRecorder(opts: {
   onError: (message: string) => void
@@ -20,7 +20,13 @@ export function useRecorder(opts: {
     onAutoStopRef.current = opts.onAutoStop
   })
 
-  useEffect(() => () => ref.current?.cancel(), [])
+  useEffect(
+    () => () => {
+      ref.current?.cancel()
+      ref.current = null
+    },
+    []
+  )
 
   const start = useCallback(async () => {
     ref.current?.cancel()
@@ -32,6 +38,11 @@ export function useRecorder(opts: {
     })
     ref.current = rec
     await rec.start()
+    // 启动期间被卸载或被新的 start/cancel 顶替：丢掉这次录音
+    if (ref.current !== rec) {
+      rec.cancel()
+      throw recordingCancelledError()
+    }
   }, [])
 
   const stop = useCallback(async () => {

@@ -9,6 +9,7 @@ import {
 import { MODE_LABEL, type AIErrorKind } from '@shared/types'
 import { api } from '../api'
 import { useRecorder } from '../hooks/useRecorder'
+import { isRecordingCancelled } from '../lib/recorder'
 import { encodeWav16, isSilent } from '../lib/wav'
 import { canSpeak } from '../state/machine'
 import { useChat } from '../store/ChatStore'
@@ -40,10 +41,21 @@ export function ChatPage({
     reason: '检查语音识别状态…'
   })
   const onMicRef = useRef<() => Promise<void>>(async () => {})
+  // 页面卸载后（如切到设置页），还在进行的启动录音不能再 dispatch 或弹横幅
+  const mountedRef = useRef(false)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
   const recorder = useRecorder({
     onError: (m) => chat.showError(m),
     // 到 60 秒上限或麦克风断开时，走与点 ■ 完全相同的流程，录音不会丢
-    onAutoStop: () => void onMicRef.current()
+    onAutoStop: () => {
+      if (!mountedRef.current) return
+      void onMicRef.current()
+    }
   })
 
   useEffect(() => {
@@ -120,6 +132,7 @@ export function ChatPage({
     // 开始录音前先停朗读，免得把朗读声录进去
     void chat.stopSpeaking()
     const allowed = await api.voice.requestMic()
+    if (!mountedRef.current) return
     if (!allowed) {
       chat.showError('麦克风权限被拒绝。请在“系统设置 → 隐私与安全性 → 麦克风”里允许 my-tutor。')
       setMicDenied(true)
@@ -128,6 +141,7 @@ export function ChatPage({
     setMicDenied(false)
     try {
       await recorder.start()
+      if (!mountedRef.current) return
       if (!cid || currentIdRef.current !== cid) {
         // 启动期间切换了会话：丢掉这次录音
         recorder.cancel()
@@ -135,6 +149,7 @@ export function ChatPage({
       }
       chat.dispatchUiFor(cid, 'START_RECORDING')
     } catch (e) {
+      if (!mountedRef.current || isRecordingCancelled(e)) return
       chat.showError(`无法开始录音：${String((e as Error)?.message ?? e)}`)
     }
   }
