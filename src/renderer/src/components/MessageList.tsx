@@ -4,10 +4,12 @@ import { MessageBubble } from './MessageBubble'
 
 export function MessageList({
   messages,
-  note
+  note,
+  onSpeak
 }: {
   messages: Message[]
   note?: string
+  onSpeak?: (text: string) => void
 }): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const lastContent = messages.at(-1)?.content
@@ -22,7 +24,7 @@ export function MessageList({
         </div>
       )}
       {messages.map((m) => (
-        <MessageBubble key={m.id} message={m} />
+        <MessageBubble key={m.id} message={m} onSpeak={onSpeak} />
       ))}
     </div>
   )

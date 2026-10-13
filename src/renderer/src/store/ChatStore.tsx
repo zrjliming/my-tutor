@@ -3,8 +3,10 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
   type ReactNode
 } from 'react'
@@ -13,7 +15,8 @@ import type {
   Conversation,
   CreateConversationInput,
   Message,
-  SettingsPatch
+  SettingsPatch,
+  SpeakOutcome
 } from '@shared/types'
 import { DEFAULT_SETTINGS } from '@shared/types'
 import { api } from '../api'
@@ -41,6 +44,8 @@ export interface ChatContextValue {
   clearAsrDraftFor(conversationId: string): void
   showError(message: string): void
   patchSettings(patch: SettingsPatch): Promise<void>
+  speak(text: string): Promise<void>
+  stopSpeaking(): Promise<void>
 }
 
 const ASR_TEXT: Record<string, string> = {
@@ -56,16 +61,59 @@ const Ctx = createContext<ChatContextValue | null>(null)
 export function ChatProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [state, dispatch] = useReducer(chatReducer, initialState)
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
+  const currentId = state.currentId
+
+  // 每个会话最近一次朗读的序号：被同一会话的新朗读顶替的旧朗读结束时不发 SPEAK_END，
+  // 否则新朗读还在播放时状态就回到 idle 了
+  const speakSeq = useRef(0)
+  const latestSpeak = useRef<Record<string, number>>({})
+  const speakFor = useCallback(async (cid: string, text: string) => {
+    const seq = ++speakSeq.current
+    latestSpeak.current[cid] = seq
+    dispatch({ type: 'ui', conversationId: cid, event: 'SPEAK' })
+    let outcome: SpeakOutcome
+    try {
+      outcome = await api.voice.speak(text)
+    } catch (e) {
+      outcome = { ok: false, kind: 'failed', message: String((e as Error)?.message ?? e) }
+    }
+    if (latestSpeak.current[cid] === seq)
+      dispatch({ type: 'ui', conversationId: cid, event: 'SPEAK_END' })
+    if (!outcome.ok)
+      dispatch({
+        type: 'error/shown',
+        conversationId: cid,
+        message: `朗读失败：${outcome.message}`
+      })
+  }, [])
+
+  // 事件订阅只在挂载时建立一次，通过 ref 读取最新的设置与当前会话
+  const settingsRef = useRef(settings)
+  const currentIdRef = useRef(currentId)
+  useLayoutEffect(() => {
+    settingsRef.current = settings
+    currentIdRef.current = currentId
+  })
 
   useEffect(() => {
     void api.conversations
       .list()
       .then((conversations) => dispatch({ type: 'conversations/loaded', conversations }))
     void api.settings.get().then(setSettings)
-    return api.chat.onEvent((event) => dispatch({ type: 'chat/event', event }))
-  }, [])
+    return api.chat.onEvent((event) => {
+      dispatch({ type: 'chat/event', event })
+      // 只自动朗读当前会话的回复，且只读英文 reply，不读中文解释
+      if (
+        event.type === 'done' &&
+        settingsRef.current.autoSpeak &&
+        event.conversationId === currentIdRef.current
+      ) {
+        const text = event.structured?.reply ?? event.rawText
+        if (text.trim()) void speakFor(event.conversationId, text)
+      }
+    })
+  }, [speakFor])
 
-  const currentId = state.currentId
   useEffect(() => {
     if (currentId && !state.messages[currentId]) {
       void api.messages
@@ -76,10 +124,10 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
     }
   }, [currentId, state.messages])
 
-  const select = useCallback(
-    async (id: string) => dispatch({ type: 'conversation/selected', id }),
-    []
-  )
+  const select = useCallback(async (id: string) => {
+    void api.voice.stopSpeaking()
+    dispatch({ type: 'conversation/selected', id })
+  }, [])
 
   const createConversation = useCallback(async (input: CreateConversationInput) => {
     const { conversation, assistantMessageId } = await api.conversations.create(input)
@@ -90,6 +138,7 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
   const sendMessage = useCallback(
     async (text: string, fromAsr = false) => {
       if (!currentId) return
+      void api.voice.stopSpeaking()
       try {
         const { userMessage, assistantMessageId } = await api.chat.send({
           conversationId: currentId,
@@ -189,6 +238,16 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
     []
   )
 
+  const speak = useCallback(
+    async (text: string) => {
+      if (!currentId || !text.trim()) return
+      await speakFor(currentId, text)
+    },
+    [currentId, speakFor]
+  )
+
+  const stopSpeaking = useCallback(async () => api.voice.stopSpeaking(), [])
+
   const value = useMemo<ChatContextValue>(
     () => ({
       state,
@@ -210,7 +269,9 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
       clearAsrDraft,
       clearAsrDraftFor,
       showError,
-      patchSettings
+      patchSettings,
+      speak,
+      stopSpeaking
     }),
     [
       state,
@@ -229,7 +290,9 @@ export function ChatProvider({ children }: { children: ReactNode }): React.JSX.E
       clearAsrDraft,
       clearAsrDraftFor,
       showError,
-      patchSettings
+      patchSettings,
+      speak,
+      stopSpeaking
     ]
   )
 

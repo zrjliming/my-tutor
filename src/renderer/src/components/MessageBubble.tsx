@@ -2,7 +2,13 @@ import type { Message } from '@shared/types'
 import { CorrectionCard } from './CorrectionCard'
 import { VocabChips } from './VocabChips'
 
-export function MessageBubble({ message }: { message: Message }): React.JSX.Element {
+export function MessageBubble({
+  message,
+  onSpeak
+}: {
+  message: Message
+  onSpeak?: (text: string) => void
+}): React.JSX.Element {
   const isUser = message.role === 'user'
   const streaming = message.status === 'streaming'
   return (
@@ -25,6 +31,11 @@ export function MessageBubble({ message }: { message: Message }): React.JSX.Elem
         {isUser && message.fromAsr && <span>🎙 语音输入</span>}
         {message.status === 'stopped' && <span>已停止</span>}
         {message.status === 'error' && <span className="text-bad">发送失败</span>}
+        {!isUser && message.status === 'done' && onSpeak && (
+          <button className="text-accent" onClick={() => onSpeak(message.content)}>
+            🔈 朗读
+          </button>
+        )}
       </div>
     </div>
   )

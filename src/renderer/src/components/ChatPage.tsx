@@ -116,6 +116,8 @@ export function ChatPage({
       if (result !== null && currentIdRef.current === cid) setText(result)
       return
     }
+    // 开始录音前先停朗读，免得把朗读声录进去
+    void chat.stopSpeaking()
     const allowed = await api.voice.requestMic()
     if (!allowed) {
       chat.showError('麦克风权限被拒绝。请在“系统设置 → 隐私与安全性 → 麦克风”里允许 my-tutor。')
@@ -221,6 +223,14 @@ export function ChatPage({
                 {chat.current.scenario ? ` · ${chat.current.scenario}` : ''}
               </span>
               <StatePill state={chat.ui} />
+              {chat.ui === 'speaking' && (
+                <button
+                  className="text-xs px-2 py-0.5 rounded-md border border-line"
+                  onClick={() => void chat.stopSpeaking()}
+                >
+                  停止朗读
+                </button>
+              )}
               <button
                 className="text-xs px-2 py-0.5 rounded-md border border-line text-bad"
                 onClick={() => void onDelete()}
@@ -248,7 +258,7 @@ export function ChatPage({
                 </button>
               </div>
             )}
-            <MessageList messages={chat.currentMessages} />
+            <MessageList messages={chat.currentMessages} onSpeak={(t) => void chat.speak(t)} />
             <InputBar
               ui={chat.ui}
               value={text}
